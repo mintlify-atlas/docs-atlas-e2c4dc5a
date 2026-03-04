@@ -1,0 +1,122 @@
+{
+  "projectType": "saas",
+  "projectName": "ScooterShare",
+  "projectDescription": "IoT-enabled scooter-sharing platform built with Flask and Raspberry Pi for managing scooter rentals, user bookings, and fleet operations.",
+  "theme": "palm",
+  "primaryColor": "#06b6d4",
+  "lightColor": "#22d3ee",
+  "darkColor": "#0e7490",
+  "navigation": {
+    "tabs": [
+      {
+        "tab": "Documentation",
+        "groups": [
+          {
+            "group": "Overview",
+            "pages": [
+              "introduction",
+              "features"
+            ]
+          },
+          {
+            "group": "Getting Started",
+            "pages": [
+              "getting-started/installation",
+              "getting-started/configuration",
+              "getting-started/running-the-app"
+            ]
+          },
+          {
+            "group": "User Guides",
+            "pages": [
+              "user-guides/customer-guide",
+              "user-guides/admin-guide",
+              "user-guides/engineer-guide"
+            ]
+          },
+          {
+            "group": "Technical",
+            "pages": [
+              "technical/architecture",
+              "technical/database-schema",
+              "technical/iot-integration"
+            ]
+          }
+        ]
+      },
+      {
+        "tab": "API Reference",
+        "groups": [
+          {
+            "group": "Authentication",
+            "pages": [
+              "api/authentication/register",
+              "api/authentication/login",
+              "api/authentication/logout"
+            ]
+          },
+          {
+            "group": "Customer APIs",
+            "pages": [
+              "api/customer/scooters",
+              "api/customer/bookings",
+              "api/customer/balance",
+              "api/customer/reviews"
+            ]
+          },
+          {
+            "group": "Admin APIs",
+            "pages": [
+              "api/admin/scooter-management",
+              "api/admin/customer-management",
+              "api/admin/analytics",
+              "api/admin/repairs"
+            ]
+          },
+          {
+            "group": "Engineer APIs",
+            "pages": [
+              "api/engineer/repairs",
+              "api/engineer/scooter-control"
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  "keyFeatures": [
+    "Multi-role user authentication (Customer, Admin, Engineer)",
+    "Real-time scooter booking and availability tracking",
+    "IoT integration with Raspberry Pi for scooter lock/unlock control",
+    "Account balance management and payment tracking",
+    "Admin analytics dashboard with Seaborn visualizations",
+    "Repair request and maintenance workflow system",
+    "User reviews and ranking system",
+    "Location-based scooter tracking"
+  ],
+  "publicApiSurface": [
+    "/register/<page_id> - User registration endpoint",
+    "/login - User login endpoint",
+    "/logout - User logout endpoint",
+    "/available_scooters - Get all available scooters",
+    "/book_scooter/<scooter_id>/<user_id> - Book a scooter",
+    "/cancel_booking/<booking_id> - Cancel a booking",
+    "/customer_bookings/<user_id> - Get customer booking history",
+    "/update_user_money - Top up customer balance",
+    "/add_review - Submit scooter review",
+    "/customer_lock_scooter/<scooter_id>/<booking_id> - Lock scooter after use",
+    "/customer_unlock_scooter/<scooter_id>/<booking_id> - Unlock booked scooter",
+    "/all_scooters - Admin: Get all scooters",
+    "/add_scooter - Admin: Add new scooter",
+    "/edit_scooter - Admin: Update scooter details",
+    "/delete_scooter/<scooter_id> - Admin: Delete scooter",
+    "/edit_user - Admin: Update user information",
+    "/visualisation/<scooter_id> - Admin: Generate usage analytics",
+    "/scooter_usage_history/<scooter_id> - Get scooter usage history",
+    "/add_repair/<page_id> - Report scooter repair",
+    "/reported_scooters - Engineer: Get scooters needing repair",
+    "/repair_statuses - Engineer: Get all repair requests",
+    "/update_repair_state - Engineer: Update repair status",
+    "/scooter_location/<scooter_id> - Get scooter GPS location"
+  ]
+}
