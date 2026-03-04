@@ -21,7 +21,7 @@ Retrieves the available balance for a specific customer account.
 
 ### Database Query
 
-```sql
+```
 SELECT AvailableMoney FROM users WHERE UserID = %s
 ```
 
@@ -71,12 +71,12 @@ Redirects to the customer balance view page after successful top-up.
 ### Database Operations
 
 1. **Get current balance:**
-```sql
+```
 SELECT AvailableMoney FROM users WHERE UserID = %s
 ```
 
 2. **Update with new balance:**
-```sql
+```
 UPDATE users SET AvailableMoney = %s WHERE UserID = %s
 ```
 

@@ -36,7 +36,7 @@ Creates a new repair request for a scooter and automatically notifies all engine
 #### 1. Update Scooter Status
 The scooter's status is automatically set to "To Be Repaired":
 
-```sql
+```
 UPDATE scooters 
 SET Status = 'To Be Repaired' 
 WHERE ScooterID = %s
@@ -45,7 +45,7 @@ WHERE ScooterID = %s
 #### 2. Create Repair Entry
 A new repair record is inserted with status "In Progress":
 
-```sql
+```
 INSERT INTO repairs (ScooterID, UserID, RepairStatus, Description)
 VALUES (%s, %s, %s, %s)
 ```

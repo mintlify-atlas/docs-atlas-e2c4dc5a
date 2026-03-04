@@ -26,18 +26,18 @@ Creates a new booking for a scooter and awards ranking points to the user.
 ### Database Operations
 
 1. **Update scooter status to 'Occupying':**
-```sql
+```
 UPDATE scooters SET Status = 'Occupying' WHERE ScooterID = %s
 ```
 
 2. **Insert booking record:**
-```sql
+```
 INSERT INTO bookings (ScooterID, UserID, BookingTime, BookingStatus, LockStatus)
 VALUES (%s, %s, NOW(), 'Active', 'Locked')
 ```
 
 3. **Award ranking points (100 points per booking):**
-```sql
+```
 -- Check existing points
 SELECT points FROM ranking WHERE UserID = %s
 
@@ -97,17 +97,17 @@ Cancels an existing booking and makes the scooter available again.
 ### Database Operations
 
 1. **Get scooter ID from booking:**
-```sql
+```
 SELECT ScooterID FROM bookings WHERE BookingID = %s
 ```
 
 2. **Update booking status:**
-```sql
+```
 UPDATE bookings SET BookingStatus = 'Cancelled' WHERE BookingID = %s
 ```
 
 3. **Make scooter available again:**
-```sql
+```
 UPDATE scooters SET Status = 'Available' WHERE ScooterID = %s
 ```
 
@@ -170,7 +170,7 @@ Retrieves all bookings (active and historical) for a specific customer.
 
 ### Database Query
 
-```sql
+```
 SELECT BookingID, ScooterID, BookingTime, BookingStatus, LockStatus 
 FROM bookings 
 WHERE UserID = %s
@@ -239,17 +239,17 @@ Unlocks a scooter for use if the customer has sufficient funds.
 ### Database Operations
 
 1. **Check user's available funds:**
-```sql
+```
 SELECT AvailableMoney FROM users WHERE UserID = %s
 ```
 
 2. **Get scooter cost:**
-```sql
+```
 SELECT CostPerTime FROM scooters WHERE ScooterID = %s
 ```
 
 3. **Update lock status (if funds sufficient):**
-```sql
+```
 UPDATE bookings SET LockStatus = 'Unlocked' WHERE BookingID = %s
 ```
 
@@ -316,38 +316,38 @@ Locks the scooter, completes the booking, charges the user, and updates the scoo
 ### Database Operations
 
 1. **Get scooter cost:**
-```sql
+```
 SELECT CostPerTime FROM scooters WHERE ScooterID = %s
 ```
 
 2. **Deduct cost from user balance:**
-```sql
+```
 SELECT AvailableMoney FROM users WHERE UserID = %s
 UPDATE users SET AvailableMoney = %s WHERE UserID = %s
 ```
 
 3. **Update booking lock status:**
-```sql
+```
 UPDATE bookings SET LockStatus = 'Locked' WHERE BookingID = %s
 ```
 
 4. **Complete the booking:**
-```sql
+```
 UPDATE bookings SET BookingStatus = 'Completed' WHERE BookingID = %s
 ```
 
 5. **Make scooter available:**
-```sql
+```
 UPDATE scooters SET Status = 'Available' WHERE ScooterID = %s
 ```
 
 6. **Update scooter location:**
-```sql
+```
 UPDATE scooters SET Location = %s WHERE ScooterID = %s
 ```
 
 7. **Create usage record:**
-```sql
+```
 INSERT INTO scooter_usage (ScooterID, UserID, TimeUsed, UsageDate, DistanceCovered) 
 VALUES (%s, %s, %s, DATE(NOW()), %s)
 ```

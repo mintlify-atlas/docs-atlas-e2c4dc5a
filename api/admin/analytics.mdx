@@ -26,7 +26,7 @@ The endpoint uses the Flask `static` directory to save charts:
 
 #### 2. Daily Distance Chart
 Query executed:
-```sql
+```
 SELECT DATE(UsageDate) AS UsageDate, SUM(DistanceCovered) AS TotalDistance
 FROM scooter_usage
 WHERE ScooterID = %s AND UsageDate >= %s
@@ -45,7 +45,7 @@ Chart specifications:
 
 #### 3. Weekly Time Used Chart
 Query executed:
-```sql
+```
 SELECT YEARWEEK(UsageDate) AS Week, SUM(TimeUsed) AS TotalTime
 FROM scooter_usage
 WHERE ScooterID = %s
@@ -115,7 +115,7 @@ Retrieves the complete usage history for a specific scooter.
 
 ### Database Query
 
-```sql
+```
 SELECT UsageID, ScooterID, TimeUsed, DistanceCovered, UsageDate 
 FROM scooter_usage 
 WHERE ScooterID = %s
@@ -197,7 +197,7 @@ Retrieves the booking history for a specific scooter.
 
 ### Database Query
 
-```sql
+```
 SELECT BookingID, ScooterID, BookingTime, BookingStatus 
 FROM bookings 
 WHERE ScooterID = %s

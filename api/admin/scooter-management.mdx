@@ -193,7 +193,7 @@ Adds a new scooter to the system.
 
 This endpoint performs an INSERT operation into the `scooters` table:
 
-```sql
+```
 INSERT INTO scooters (Make, Colour, Location, RemainingPower, CostPerTime, Status) 
 VALUES (%s, %s, %s, %s, %s, %s)
 ```
@@ -244,7 +244,7 @@ Updates an existing scooter's information.
 
 This endpoint performs an UPDATE operation on the `scooters` table:
 
-```sql
+```
 UPDATE scooters 
 SET Make = %s, Colour = %s, Location = %s, 
     RemainingPower = %s, CostPerTime = %s, Status = %s 
@@ -275,7 +275,7 @@ Deletes a scooter from the system.
 
 This endpoint performs a DELETE operation on the `scooters` table:
 
-```sql
+```
 DELETE FROM scooters WHERE ScooterID = %s
 ```
 

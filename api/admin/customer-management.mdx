@@ -13,7 +13,7 @@ Retrieves a list of all customers in the system (users with UserType = 'Customer
 
 This endpoint executes the following SQL query:
 
-```sql
+```
 SELECT * FROM users WHERE UserType = 'Customer'
 ```
 
@@ -65,7 +65,7 @@ Retrieves detailed information about a specific customer.
 
 This endpoint executes the following SQL query:
 
-```sql
+```
 SELECT * FROM users WHERE UserID = %s
 ```
 
@@ -198,7 +198,7 @@ Updates an existing user's information.
 
 This endpoint performs an UPDATE operation on the `users` table:
 
-```sql
+```
 UPDATE users
 SET UserType = %s,
     Username = %s,
