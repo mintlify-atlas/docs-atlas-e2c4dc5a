@@ -1,0 +1,119 @@
+---
+title: 'Balance'
+description: 'Customer endpoints for managing account balance and top-ups'
+---
+
+## GET /customer_balance_data/\<userID\>
+
+Retrieves the available balance for a specific customer account.
+
+### Request
+
+<ParamField path="userID" type="integer" required>
+  The unique identifier of the customer
+</ParamField>
+
+### Response
+
+<ResponseField name="balance" type="number">
+  The customer's available money/balance
+</ResponseField>
+
+### Database Query
+
+```sql
+SELECT AvailableMoney FROM users WHERE UserID = %s
+```
+
+### Example Request
+
+```bash
+GET /customer_balance_data/15
+```
+
+### Example Response
+
+**Success (200)**
+```json
+{
+  "balance": 45.75
+}
+```
+
+**Error**
+```json
+{
+  "error": "Error message details"
+}
+```
+
+---
+
+## POST /update_user_money
+
+Adds funds to a customer's account balance (top-up functionality).
+
+### Request
+
+<ParamField body="topup_amount" type="number" required>
+  The amount to add to the user's balance (form data)
+</ParamField>
+
+### Session Requirements
+
+- User must be logged in with active session
+- `user_id` is retrieved from session data
+
+### Response
+
+Redirects to the customer balance view page after successful top-up.
+
+### Database Operations
+
+1. **Get current balance:**
+```sql
+SELECT AvailableMoney FROM users WHERE UserID = %s
+```
+
+2. **Update with new balance:**
+```sql
+UPDATE users SET AvailableMoney = %s WHERE UserID = %s
+```
+
+### Calculation
+
+```
+newBalance = currentMoney + topup_amount
+```
+
+### Example Request
+
+```bash
+POST /update_user_money
+Content-Type: application/x-www-form-urlencoded
+
+topup_amount=25.00
+```
+
+### Example Flow
+
+1. Customer has current balance of `45.75`
+2. Customer submits top-up of `25.00`
+3. New balance becomes `70.75`
+4. User is redirected to balance view page
+
+### Error Response
+
+**Error**
+```json
+{
+  "error": "Error message details"
+}
+```
+
+### Notes
+
+- The endpoint uses form data (not JSON)
+- Amount is parsed as float to support decimal values
+- Session-based authentication is required
+- On success, redirects to `customer_page.customer_view_balance`

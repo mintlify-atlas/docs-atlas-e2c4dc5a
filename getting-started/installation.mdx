@@ -1,0 +1,112 @@
+---
+title: Installation
+description: Install ScooterShare and its dependencies on your Raspberry Pi
+---
+
+## Prerequisites
+
+Before installing ScooterShare, ensure you have the following:
+
+- Raspberry Pi (tested on Raspberry Pi 3/4)
+- Python 3.7 or higher
+- pip (Python package installer)
+- MySQL database server (local or remote)
+- Git (for cloning the repository)
+
+<Note>
+  This application is designed to run on two Raspberry Pi devices - one acting as the master server and another for client operations.
+</Note>
+
+## Installation Steps
+
+<Steps>
+  <Step title="Clone the Repository">
+    First, clone the ScooterShare repository to your Raspberry Pi:
+    
+    ```bash
+    git clone https://github.com/your-repo/scootershare.git
+    cd scootershare
+    ```
+  </Step>
+
+  <Step title="Install System Dependencies">
+    Update your system and install required system packages:
+    
+    ```bash
+    sudo apt-get update
+    sudo apt-get install python3-dev default-libmysqlclient-dev build-essential
+    ```
+    
+    These packages are required for the MySQLdb Python library to compile correctly.
+  </Step>
+
+  <Step title="Install Python Dependencies">
+    Install all required Python packages using pip:
+    
+    ```bash
+    sudo pip install flask flask_session flask_bcrypt flask_cors flask_sqlalchemy mysqlclient seaborn
+    ```
+    
+    <Note>
+      The `sudo` prefix is required on Raspberry Pi to ensure packages are installed system-wide and accessible when running the Flask app.
+    </Note>
+  </Step>
+
+  <Step title="Verify Installation">
+    Verify that all dependencies are installed correctly:
+    
+    ```bash
+    python3 -c "import flask; import flask_session; import flask_bcrypt; import MySQLdb; print('All dependencies installed successfully!')"
+    ```
+    
+    If this command runs without errors, your installation is complete.
+  </Step>
+</Steps>
+
+## Installed Packages
+
+Here's what each dependency provides:
+
+| Package | Purpose |
+|---------|----------|
+| `flask` | Core web framework for the application |
+| `flask_session` | Server-side session management |
+| `flask_bcrypt` | Password hashing and verification |
+| `flask_cors` | Cross-Origin Resource Sharing (CORS) support |
+| `flask_sqlalchemy` | SQLAlchemy integration for database operations |
+| `mysqlclient` | MySQL database connector for Python |
+| `seaborn` | Data visualization for admin reports |
+
+<Warning>
+  Make sure you have sufficient storage space on your Raspberry Pi. The installation requires approximately 500MB of free space for all dependencies.
+</Warning>
+
+## Troubleshooting
+
+### MySQLdb Installation Fails
+
+If you encounter errors installing `mysqlclient`, ensure you have the development headers:
+
+```bash
+sudo apt-get install python3-dev default-libmysqlclient-dev build-essential
+```
+
+### Permission Errors
+
+If you get permission errors during installation, use `sudo` with pip:
+
+```bash
+sudo pip install <package-name>
+```
+
+### Python Version Issues
+
+Ensure you're using Python 3.7 or higher:
+
+```bash
+python3 --version
+```
+
+## Next Steps
+
+Once installation is complete, proceed to [Configuration](/getting-started/configuration) to set up your database and application settings.

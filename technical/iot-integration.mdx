@@ -1,0 +1,520 @@
+---
+title: IoT Integration
+description: Raspberry Pi hardware integration and lock/unlock functionality
+---
+
+## Overview
+
+ScooterShare is designed to run on Raspberry Pi hardware, providing IoT-enabled scooter management with remote lock/unlock capabilities. The system uses two Raspberry Pi devices connected via a local network.
+
+## Hardware Architecture
+
+### Raspberry Pi Setup
+
+The application runs on dual Raspberry Pi configuration:
+
+<CardGroup cols={2}>
+  <Card title="Master Pi" icon="server">
+    Hosts the Flask application and database connections
+  </Card>
+  
+  <Card title="Client Pi(s)" icon="microchip">
+    Controls individual scooter lock mechanisms
+  </Card>
+</CardGroup>
+
+### Network Configuration
+
+The Raspberry Pi devices communicate over a local network using configurable IP addresses:
+
+```python
+import configparser
+
+config = configparser.ConfigParser()
+config.read('config.ini')
+ip_address = config.get('app', 'ip_address')
+port = config.get('app', 'port')
+```
+
+**config.ini:**
+```ini
+[app]
+ip_address = 192.168.0.3
+port = 5000
+```
+
+<Note>
+  The Master Pi binds to `0.0.0.0` to accept connections from any network interface, allowing scooter hardware and user devices to communicate with the system.
+</Note>
+
+## Lock/Unlock Functionality
+
+### Customer Lock/Unlock Operations
+
+Customers can remotely control scooter locks through the web interface.
+
+<Tabs>
+  <Tab title="Unlock Scooter">
+    **Endpoint:** `/customer_unlock_scooter/<scooter_id>/<booking_id>`
+    
+    **Process:**
+    
+    <Steps>
+      <Step title="Verify Funds">
+        Check if user has sufficient balance to cover the rental cost:
+        
+        ```python
+        scooter_query = "SELECT AvailableMoney FROM users WHERE UserID = %s"
+        cursor.execute(scooter_query, (session.get('user_id'),))
+        available_money = cursor.fetchone()[0]
+        
+        scooter_query = "SELECT CostPerTime FROM scooters WHERE ScooterID = %s"
+        cursor.execute(scooter_query, (scooter_id,))
+        cost_per_time = cursor.fetchone()[0]
+        
+        if available_money < cost_per_time:
+            return render_template("customer/customer.html", 
+                                   message="Not enough funds to unlock scooter")
+        ```
+      </Step>
+      
+      <Step title="Update Lock Status">
+        Change the booking's lock status to "Unlocked":
+        
+        ```python
+        update_booking_query = """UPDATE bookings 
+                                  SET LockStatus = 'Unlocked' 
+                                  WHERE BookingID = %s"""
+        cursor.execute(update_booking_query, (booking_id,))
+        connection.commit()
+        ```
+      </Step>
+      
+      <Step title="Return Success">
+        Confirm unlock operation to user:
+        
+        ```python
+        return render_template("customer/customer.html", 
+                               message="Scooter Unlocked Successfully")
+        ```
+      </Step>
+    </Steps>
+  </Tab>
+  
+  <Tab title="Lock Scooter">
+    **Endpoint:** `/customer_lock_scooter/<scooter_id>/<booking_id>`
+    
+    **Process:**
+    
+    <Steps>
+      <Step title="Get Location Update">
+        Receive new location from request parameters:
+        
+        ```python
+        userID = session.get('user_id')
+        new_location = request.args.get('newLocation')
+        ```
+      </Step>
+      
+      <Step title="Calculate and Charge Fee">
+        Deduct rental cost from user's balance:
+        
+        ```python
+        # Get cost per time
+        scooter_query = "SELECT CostPerTime FROM scooters WHERE ScooterID = %s"
+        cursor.execute(scooter_query, (scooter_id,))
+        cost_per_time = cursor.fetchone()[0]
+        
+        # Get current balance
+        select_query = "SELECT AvailableMoney FROM users WHERE UserID = %s"
+        cursor.execute(select_query, (userID,))
+        current_money = float(cursor.fetchone()[0])
+        
+        # Calculate new balance
+        new_balance = current_money - cost_per_time
+        
+        # Update user balance
+        update_query = "UPDATE users SET AvailableMoney = %s WHERE UserID = %s"
+        cursor.execute(update_query, (new_balance, userID))
+        ```
+      </Step>
+      
+      <Step title="Update Booking Status">
+        Mark booking as completed and lock the scooter:
+        
+        ```python
+        # Set lock status to Locked
+        update_query = "UPDATE bookings SET LockStatus = 'Locked' WHERE BookingID = %s"
+        cursor.execute(update_query, (booking_id,))
+        
+        # Set booking status to Completed
+        update_query = "UPDATE bookings SET BookingStatus = 'Completed' WHERE BookingID = %s"
+        cursor.execute(update_query, (booking_id,))
+        ```
+      </Step>
+      
+      <Step title="Update Scooter Status">
+        Make scooter available and update location:
+        
+        ```python
+        # Set scooter to Available
+        update_query = "UPDATE scooters SET Status = 'Available' WHERE ScooterID = %s"
+        cursor.execute(update_query, (scooter_id,))
+        
+        # Update scooter location
+        update_query = "UPDATE scooters SET Location = %s WHERE ScooterID = %s"
+        cursor.execute(update_query, (new_location, scooter_id))
+        ```
+      </Step>
+      
+      <Step title="Record Usage">
+        Log the usage data for analytics:
+        
+        ```python
+        insert_usage_query = """INSERT INTO scooter_usage 
+            (ScooterID, UserID, TimeUsed, UsageDate, DistanceCovered) 
+            VALUES (%s, %s, %s, DATE(NOW()), %s)"""
+        cursor.execute(insert_usage_query, (scooter_id, userID, 10, 10))
+        connection.commit()
+        ```
+      </Step>
+    </Steps>
+  </Tab>
+</Tabs>
+
+### Engineer Lock/Unlock Operations
+
+Engineers have emergency access to lock/unlock any scooter for maintenance purposes.
+
+<Tabs>
+  <Tab title="Engineer Unlock">
+    **Endpoint:** `/engineer_unlock_scooter/<scooter_id>/<booking_id>`
+    
+    Engineers can unlock scooters without balance verification:
+    
+    ```python
+    @engineer_page.route("/engineer_unlock_scooter/<int:scooter_id>/<int:booking_id>")
+    def engineer_unlock_scooter(scooter_id, booking_id):
+        try:
+            connection = create_db_connection()
+            cursor = connection.cursor()
+            
+            # Update booking lock status
+            update_booking_query = """UPDATE bookings 
+                                      SET LockStatus = 'Unlocked' 
+                                      WHERE BookingID = %s"""
+            cursor.execute(update_booking_query, (booking_id,))
+            connection.commit()
+            
+            cursor.close()
+            connection.close()
+            
+            return jsonify({"message": "Scooter Unlocked Successfully"}), 200
+        except Exception as e:
+            return jsonify({"error": str(e)})
+    ```
+  </Tab>
+  
+  <Tab title="Engineer Lock">
+    **Endpoint:** `/engineer_lock_scooter/<scooter_id>/<booking_id>`
+    
+    Engineers can lock scooters and update their status:
+    
+    ```python
+    @engineer_page.route("/engineer_lock_scooter/<int:scooter_id>/<int:booking_id>")
+    def engineer_lock_scooter(scooter_id, booking_id):
+        try:
+            userID = session.get('user_id')
+            new_location = request.args.get('newLocation')
+            
+            connection = create_db_connection()
+            cursor = connection.cursor()
+            
+            # Update lock status
+            update_query = "UPDATE bookings SET LockStatus = 'Locked' WHERE BookingID = %s"
+            cursor.execute(update_query, (booking_id,))
+            
+            # Complete booking
+            update_query = "UPDATE bookings SET BookingStatus = 'Completed' WHERE BookingID = %s"
+            cursor.execute(update_query, (booking_id,))
+            
+            # Make scooter available
+            update_query = "UPDATE scooters SET Status = 'Available' WHERE ScooterID = %s"
+            cursor.execute(update_query, (scooter_id,))
+            
+            # Update location
+            update_query = "UPDATE scooters SET Location = %s WHERE ScooterID = %s"
+            cursor.execute(update_query, (new_location, scooter_id))
+            
+            connection.commit()
+            
+            # Record usage
+            insert_usage_query = """INSERT INTO scooter_usage 
+                (ScooterID, UserID, TimeUsed, UsageDate, DistanceCovered) 
+                VALUES (%s, %s, %s, DATE(NOW()), %s)"""
+            cursor.execute(insert_usage_query, (scooter_id, userID, 10, 10))
+            connection.commit()
+            
+            return jsonify({"message": "Scooter Locked Successfully"}), 200
+        except Exception as e:
+            return jsonify({"error": str(e)})
+    ```
+  </Tab>
+</Tabs>
+
+## Lock Status Management
+
+### Query Active Bookings by Lock Status
+
+The system tracks which scooters are locked or unlocked to display appropriate actions to users.
+
+<Tabs>
+  <Tab title="Unlocked Scooters">
+    **Customer View:**
+    
+    ```python
+    @customer_page.route('/customer_active_bookings_unlocked/<int:user_id>')
+    def get_active_booking_history_unlocked(user_id):
+        query = """SELECT BookingID, ScooterID, BookingTime, BookingStatus 
+                   FROM bookings 
+                   WHERE UserID = %s 
+                   AND BookingStatus = 'Active' 
+                   AND LockStatus = 'Unlocked'"""
+        cursor.execute(query, (user_id,))
+        booking_data = cursor.fetchall()
+        
+        # Convert to JSON response
+        booking_history = []
+        for booking in booking_data:
+            booking_history.append({
+                "BookingID": booking[0],
+                "ScooterID": booking[1],
+                "BookingTime": booking[2].strftime("%Y-%m-%d %H:%M:%S"),
+                "BookingStatus": booking[3]
+            })
+        
+        return jsonify({"booking_history": booking_history})
+    ```
+    
+    **Engineer View:**
+    
+    ```python
+    @engineer_page.route('/engineer_active_bookings_unlocked')
+    def engineer_get_active_booking_history_unlocked():
+        query = """SELECT BookingID, ScooterID, BookingTime, BookingStatus 
+                   FROM bookings 
+                   WHERE BookingStatus = 'Active' 
+                   AND LockStatus = 'Unlocked'"""
+        cursor.execute(query,)
+        # Returns all unlocked scooters across all users
+    ```
+  </Tab>
+  
+  <Tab title="Locked Scooters">
+    **Customer View:**
+    
+    ```python
+    @customer_page.route('/customer_active_bookings_locked/<int:user_id>')
+    def get_active_booking_history_locked(user_id):
+        query = """SELECT BookingID, ScooterID, BookingTime, BookingStatus 
+                   FROM bookings 
+                   WHERE UserID = %s 
+                   AND BookingStatus = 'Active' 
+                   AND LockStatus = 'Locked'"""
+        cursor.execute(query, (user_id,))
+    ```
+    
+    **Engineer View:**
+    
+    ```python
+    @engineer_page.route('/engineer_active_bookings_locked')
+    def engineer_get_active_booking_history_locked():
+        query = """SELECT BookingID, ScooterID, BookingTime, BookingStatus 
+                   FROM bookings 
+                   WHERE BookingStatus = 'Active' 
+                   AND LockStatus = 'Locked'"""
+        cursor.execute(query,)
+    ```
+  </Tab>
+</Tabs>
+
+### UI Integration
+
+The lock/unlock interface fetches booking data and displays appropriate controls:
+
+```python
+@customer_page.route('/customer_lock_unlock')
+def customer_lock_unlock():
+    user_id = session.get('user_id')
+    
+    # Get unlocked scooters (can be locked)
+    response1 = requests.get(
+        f"http://{ip_address}:{port}/customer_active_bookings_unlocked/{user_id}")
+    lockable = json.loads(response1.text)
+    
+    # Get locked scooters (can be unlocked)
+    response2 = requests.get(
+        f"http://{ip_address}:{port}/customer_active_bookings_locked/{user_id}")
+    unlockable = json.loads(response2.text)
+    
+    return render_template("customer/lock_unlock.html", 
+                          lockable=lockable, 
+                          unlockable=unlockable)
+```
+
+## Location Tracking
+
+### Get Scooter Location
+
+Retrieve current GPS coordinates or address of a scooter:
+
+```python
+@app.route('/scooter_location/<int:scooter_id>', methods=['GET'])
+def get_scooter_location(scooter_id):
+    try:
+        connection = create_db_connection()
+        cursor = connection.cursor()
+        
+        # Fetch location from database
+        query = "SELECT Location FROM scooters WHERE ScooterID = %s"
+        cursor.execute(query, (scooter_id,))
+        location_data = cursor.fetchone()
+        
+        cursor.close()
+        connection.close()
+        
+        if location_data:
+            location = location_data[0]
+            return jsonify({"location": location})
+        else:
+            return jsonify({"error": f"Scooter with ID {scooter_id} not found"})
+            
+    except Exception as e:
+        return jsonify({"error": str(e)})
+```
+
+### Update Scooter Location
+
+Location is updated when a scooter is locked:
+
+```python
+# Customer provides new location when locking
+new_location = request.args.get('newLocation')
+
+# Update database
+update_query = "UPDATE scooters SET Location = %s WHERE ScooterID = %s"
+cursor.execute(update_query, (new_location, scooter_id))
+connection.commit()
+```
+
+## Deployment Instructions
+
+### Hardware Requirements
+
+<CardGroup cols={2}>
+  <Card title="Raspberry Pi 3/4" icon="raspberry-pi">
+    One or more Raspberry Pi boards (3B+ or newer recommended)
+  </Card>
+  
+  <Card title="Network Connection" icon="wifi">
+    WiFi or Ethernet connection to local network
+  </Card>
+  
+  <Card title="Power Supply" icon="plug">
+    5V power supply for each Raspberry Pi
+  </Card>
+  
+  <Card title="SD Card" icon="sd-card">
+    16GB+ microSD card with Raspberry Pi OS installed
+  </Card>
+</CardGroup>
+
+### Software Installation
+
+<Steps>
+  <Step title="Install Dependencies">
+    ```bash
+    sudo pip install flask_session flask_bcrypt flask_cors \
+                     flask_sqlalchemy mysqlclient seaborn
+    ```
+  </Step>
+  
+  <Step title="Configure Network">
+    Find your Raspberry Pi's IP address:
+    
+    ```bash
+    hostname -I
+    ```
+    
+    Update `config.ini` with the IP:
+    
+    ```ini
+    [app]
+    ip_address = 192.168.0.3
+    port = 5000
+    ```
+  </Step>
+  
+  <Step title="Start Flask Application">
+    ```bash
+    sudo flask --app app.py run --host=0.0.0.0
+    ```
+  </Step>
+  
+  <Step title="Access Application">
+    Navigate to `http://192.168.0.3:5000` (replace with your Pi's IP)
+  </Step>
+</Steps>
+
+<Note>
+  Running with `sudo` may be required for accessing certain hardware interfaces or binding to privileged ports.
+</Note>
+
+## API Communication Pattern
+
+The system uses HTTP requests for inter-component communication:
+
+```python
+import requests
+import json
+
+# Frontend requests to Flask backend
+response = requests.post(
+    f"http://{ip_address}:{port}/book_scooter/{scooter_id}/{user_id}")
+data = json.loads(response.text)
+
+# Display result to user
+return render_template("customer/customer_booking.html", message=data)
+```
+
+## Security Considerations
+
+<Warning>
+  The lock/unlock functionality should be enhanced with additional security measures in production:
+  
+  - Add encryption for lock/unlock commands
+  - Implement two-factor authentication for unlock operations
+  - Add geofencing to verify user proximity to scooter
+  - Log all lock/unlock events for audit trail
+  - Implement rate limiting to prevent abuse
+</Warning>
+
+## Future Enhancements
+
+<CardGroup cols={2}>
+  <Card title="Real-time GPS" icon="location-dot">
+    Integrate GPS modules for live location tracking
+  </Card>
+  
+  <Card title="Bluetooth Unlock" icon="bluetooth">
+    Add BLE proximity-based automatic unlocking
+  </Card>
+  
+  <Card title="Battery Monitoring" icon="battery-three-quarters">
+    Real-time battery level updates from scooter hardware
+  </Card>
+  
+  <Card title="Motion Sensors" icon="gauge">
+    Detect unauthorized movement when locked
+  </Card>
+</CardGroup>

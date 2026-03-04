@@ -1,0 +1,316 @@
+---
+title: System Architecture
+description: Technical architecture of the ScooterShare Flask application
+---
+
+## Overview
+
+ScooterShare is built as a Flask-based web application designed to run on Raspberry Pi hardware. The application follows a modular blueprint architecture with separate modules for different user roles.
+
+## Application Structure
+
+### Core Components
+
+The application is structured around Flask blueprints, with a main application file (`app.py`) that orchestrates three role-based modules:
+
+```python
+from engineer import engineer_page
+from customer import customer_page
+from admin import admin_page
+
+app = Flask(__name__, static_url_path='/static')
+
+# Register blueprints
+app.register_blueprint(engineer_page)
+app.register_blueprint(customer_page)
+app.register_blueprint(admin_page)
+```
+
+### Blueprint Architecture
+
+The application uses Flask Blueprints to organize functionality by user role:
+
+<Tabs>
+  <Tab title="Customer Blueprint">
+    **File:** `customer.py`
+    
+    Handles all customer-facing functionality:
+    - Scooter browsing and booking
+    - Account balance management
+    - Lock/unlock scooter operations
+    - Usage history tracking
+    - Reviews and rankings
+    
+    ```python
+    customer_page = Blueprint('customer_page', __name__,
+                              template_folder='templates')
+    ```
+    
+    **Key Routes:**
+    - `/available_scooters` - View available scooters
+    - `/book_scooter/<scooter_id>/<user_id>` - Book a scooter
+    - `/customer_unlock_scooter/<scooter_id>/<booking_id>` - Unlock scooter
+    - `/customer_lock_scooter/<scooter_id>/<booking_id>` - Lock scooter
+    - `/update_user_money` - Top up account balance
+  </Tab>
+  
+  <Tab title="Admin Blueprint">
+    **File:** `admin.py`
+    
+    Provides administrative functionality:
+    - Scooter fleet management (CRUD operations)
+    - Customer management
+    - Usage analytics and visualizations
+    - Repair request management
+    
+    ```python
+    admin_page = Blueprint('admin_page', __name__, 
+                          template_folder='templates')
+    ```
+    
+    **Key Routes:**
+    - `/all_scooters` - List all scooters
+    - `/add_scooter` - Add new scooter
+    - `/edit_scooter` - Update scooter details
+    - `/delete_scooter/<scooter_id>` - Remove scooter
+    - `/visualisation/<scooter_id>` - Generate usage reports
+  </Tab>
+  
+  <Tab title="Engineer Blueprint">
+    **File:** `engineer.py`
+    
+    Manages maintenance and repair operations:
+    - View reported scooters
+    - Update repair status
+    - Emergency lock/unlock operations
+    
+    ```python
+    engineer_page = Blueprint('engineer_page', __name__, 
+                             template_folder='templates')
+    ```
+    
+    **Key Routes:**
+    - `/reported_scooters` - List scooters needing repair
+    - `/repair_statuses` - View all repair requests
+    - `/update_repair_state` - Update repair status
+    - `/engineer_unlock_scooter/<scooter_id>/<booking_id>` - Emergency unlock
+  </Tab>
+</Tabs>
+
+## Session Management
+
+### Configuration
+
+The application uses Flask-Session for server-side session management with SQLAlchemy backend:
+
+```python
+from flask_session import Session
+from flask_sqlalchemy import SQLAlchemy
+
+app.config['SECRET_KEY'] = "JEFF"
+app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///db.sqlite3'
+app.config['SESSION_TYPE'] = 'sqlalchemy'
+
+db = SQLAlchemy(app)
+app.config['SESSION_SQLALCHEMY'] = db
+
+sess = Session(app)
+```
+
+### Session Variables
+
+The following session variables track user state:
+
+- `session['loggedin']` - Boolean indicating login status
+- `session['user_id']` - Unique user identifier
+- `session['username']` - Username for display purposes
+
+### Session Lifecycle
+
+<Steps>
+  <Step title="Login">
+    User credentials are validated against the database with bcrypt password hashing:
+    
+    ```python
+    user = cursor.fetchone()
+    if user and bcrypt.check_password_hash(user[0], password):
+        session['loggedin'] = True
+        session['user_id'] = user[1]
+        session['username'] = user[3]
+    ```
+  </Step>
+  
+  <Step title="Authorization">
+    Routes check session status before granting access:
+    
+    ```python
+    if session['loggedin'] is True:
+        # Allow access to protected resources
+    else:
+        return redirect("/login_form")
+    ```
+  </Step>
+  
+  <Step title="Logout">
+    Session variables are cleared on logout:
+    
+    ```python
+    session['loggedin'] = None
+    session['user_id'] = None
+    session['username'] = None
+    ```
+  </Step>
+</Steps>
+
+## Authentication Flow
+
+### User Registration
+
+New users are registered with bcrypt password hashing:
+
+```python
+@app.route('/register/<int:page_id>', methods=['POST'])
+def register_user(page_id):
+    data = request.form
+    hashed_password = bcrypt.generate_password_hash(
+        data["password"]).decode('utf-8')
+    
+    insert_query = """INSERT INTO users (UserType, Username,
+        Password, FirstName, LastName,
+        PhoneNumber, Email, AvailableMoney)
+        VALUES (%s, %s, %s, %s, %s, %s, %s, %s)"""
+```
+
+### Login Process
+
+Authentication validates credentials and creates session based on user type:
+
+```python
+@app.route('/login', methods=['POST'])
+def login_user():
+    # Fetch user by email
+    select_query = """SELECT Password, UserID, UserType, Username 
+                      FROM users WHERE Email= %s"""
+    
+    # Verify password
+    if user and bcrypt.check_password_hash(user[0], password):
+        session['loggedin'] = True
+        session['user_id'] = user[1]
+        session['username'] = user[3]
+        
+        # Route to appropriate dashboard
+        userType = user[2]
+        if userType == "Engineer":
+            return render_template("engineer/engineer.html")
+        elif userType == "System Admin":
+            return render_template("admin/admin.html")
+        elif userType == "Customer":
+            return render_template("customer/customer.html")
+```
+
+## Database Connection
+
+### MySQL Connection Pool
+
+Each blueprint maintains its own database connection factory:
+
+```python
+import MySQLdb
+
+HOST = ""
+USER = ""
+PASSWORD = ""
+DATABASE = ""
+
+def create_db_connection():
+    return MySQLdb.connect(
+        host=HOST, user=USER, passwd=PASSWORD, db=DATABASE
+    )
+```
+
+### Connection Pattern
+
+All database operations follow this pattern:
+
+```python
+connection = create_db_connection()
+cursor = connection.cursor()
+
+try:
+    # Execute queries
+    cursor.execute(query, params)
+    connection.commit()
+except Exception as e:
+    connection.rollback()
+    raise e
+finally:
+    cursor.close()
+    connection.close()
+```
+
+## Security Features
+
+<CardGroup cols={2}>
+  <Card title="Password Encryption" icon="lock">
+    Bcrypt hashing for all passwords with automatic salt generation
+  </Card>
+  
+  <Card title="Session Security" icon="shield">
+    Server-side session storage prevents client tampering
+  </Card>
+  
+  <Card title="SQL Injection Protection" icon="database">
+    Parameterized queries throughout the application
+  </Card>
+  
+  <Card title="CORS Configuration" icon="globe">
+    Flask-CORS enabled for controlled cross-origin access
+  </Card>
+</CardGroup>
+
+## Configuration Management
+
+The application uses `configparser` for environment-specific settings:
+
+```python
+import configparser
+
+config = configparser.ConfigParser()
+config.read('config.ini')
+ip_address = config.get('app', 'ip_address')
+port = config.get('app', 'port')
+```
+
+**config.ini structure:**
+```ini
+[app]
+ip_address = 192.168.0.3
+port = 5000
+```
+
+## Deployment Architecture
+
+The application is designed to run on Raspberry Pi hardware:
+
+<Steps>
+  <Step title="Install Dependencies">
+    ```bash
+    sudo pip install flask_session flask_bcrypt flask_cors \
+                     flask_sqlalchemy mysqlclient seaborn
+    ```
+  </Step>
+  
+  <Step title="Configure Network">
+    Update `config.ini` with the Raspberry Pi's local IP address
+  </Step>
+  
+  <Step title="Start Application">
+    ```bash
+    sudo flask --app app.py run --host=0.0.0.0
+    ```
+  </Step>
+</Steps>
+
+<Note>
+  The application binds to `0.0.0.0` to accept connections from any network interface, making it accessible to other devices on the local network.
+</Note>

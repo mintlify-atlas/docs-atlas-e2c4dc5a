@@ -1,0 +1,132 @@
+---
+title: 'Scooters'
+description: 'Customer endpoints for browsing and locating available scooters'
+---
+
+## GET /available_scooters
+
+Retrieves all scooters with 'Available' status from the database.
+
+### Request
+
+No parameters required.
+
+### Response
+
+<ResponseField name="scooters" type="array">
+  Array of available scooter objects
+  
+  <ResponseField name="ScooterID" type="integer">
+    Unique identifier for the scooter
+  </ResponseField>
+  
+  <ResponseField name="Make" type="string">
+    Manufacturer/model of the scooter
+  </ResponseField>
+  
+  <ResponseField name="Colour" type="string">
+    Color of the scooter
+  </ResponseField>
+  
+  <ResponseField name="Location" type="string">
+    Current location of the scooter
+  </ResponseField>
+  
+  <ResponseField name="RemainingPower" type="number">
+    Battery level/remaining power percentage
+  </ResponseField>
+  
+  <ResponseField name="CostPerTime" type="number">
+    Cost charged per time unit for using this scooter
+  </ResponseField>
+  
+  <ResponseField name="Status" type="string">
+    Status of the scooter (will be 'Available')
+  </ResponseField>
+</ResponseField>
+
+### Database Query
+
+```sql
+SELECT * FROM scooters WHERE status = 'Available'
+```
+
+### Example Response
+
+```json
+{
+  "scooters": [
+    {
+      "ScooterID": 1,
+      "Make": "Xiaomi M365",
+      "Colour": "Black",
+      "Location": "Central Park",
+      "RemainingPower": 85.5,
+      "CostPerTime": 2.50,
+      "Status": "Available"
+    },
+    {
+      "ScooterID": 3,
+      "Make": "Segway Ninebot",
+      "Colour": "White",
+      "Location": "Downtown Plaza",
+      "RemainingPower": 92.0,
+      "CostPerTime": 3.00,
+      "Status": "Available"
+    }
+  ]
+}
+```
+
+---
+
+## GET /scooter_location/\<scooter_id\>
+
+Retrieves the current location of a specific scooter by its ID.
+
+### Request
+
+<ParamField path="scooter_id" type="integer" required>
+  The unique identifier of the scooter
+</ParamField>
+
+### Response
+
+<ResponseField name="location" type="string">
+  Current location of the scooter
+</ResponseField>
+
+### Database Query
+
+```sql
+SELECT Location FROM scooters WHERE ScooterID = %s
+```
+
+### Example Request
+
+```bash
+GET /scooter_location/5
+```
+
+### Example Response
+
+**Success (200)**
+```json
+{
+  "location": "City Square"
+}
+```
+
+**Not Found**
+```json
+{
+  "error": "Scooter with ID 5 not found"
+}
+```
+
+**Error**
+```json
+{
+  "error": "Error message details"
+}
+```

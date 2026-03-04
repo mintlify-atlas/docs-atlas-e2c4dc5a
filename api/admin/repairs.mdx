@@ -1,0 +1,158 @@
+---
+title: 'Repair Management'
+description: 'Manage scooter repair requests and notifications'
+---
+
+## Add Repair Request
+
+<api>POST /add_repair/\{page_id\}</api>
+
+Creates a new repair request for a scooter and automatically notifies all engineers via email.
+
+### Path Parameters
+
+<ParamField path="page_id" type="integer" required>
+  Page identifier to determine which template to render after completion:
+  - `1` - Returns customer.html
+  - `2` - Returns admin.html
+</ParamField>
+
+### Form Data Parameters
+
+<ParamField body="scooter_id" type="integer" required>
+  The unique identifier of the scooter requiring repair
+</ParamField>
+
+<ParamField body="user_id" type="integer" required>
+  The ID of the user reporting the issue
+</ParamField>
+
+<ParamField body="description" type="string" required>
+  Detailed description of the repair issue
+</ParamField>
+
+### Repair Workflow
+
+#### 1. Update Scooter Status
+The scooter's status is automatically set to "To Be Repaired":
+
+```sql
+UPDATE scooters 
+SET Status = 'To Be Repaired' 
+WHERE ScooterID = %s
+```
+
+#### 2. Create Repair Entry
+A new repair record is inserted with status "In Progress":
+
+```sql
+INSERT INTO repairs (ScooterID, UserID, RepairStatus, Description)
+VALUES (%s, %s, %s, %s)
+```
+
+The repair status is automatically set to `'In Progress'`.
+
+#### 3. Engineer Notification
+
+The system automatically:
+1. Queries all engineers from the database:
+   ```sql
+   SELECT Email FROM users WHERE UserType = 'Engineer'
+   ```
+
+2. Sends an email to each engineer via Mailgun API with:
+   - **From:** Configured Mailgun email
+   - **To:** Each engineer's email address
+   - **Subject:** "New Scooter Repair Request"
+   - **Body:** Formatted message containing:
+     - Scooter ID
+     - User ID (reporter)
+     - Repair description
+
+### Email Message Format
+
+```
+Scooter ID: {scooter_id}
+User ID: {user_id}
+Repair Description: {description}
+```
+
+### Mailgun Integration
+
+The endpoint uses the Mailgun API for email delivery:
+
+```python
+response = requests.post(
+    "MAILGUN API",
+    auth=("api", "API KEY"),
+    data={
+        "from": "MAILGUN EMAIL",
+        "to": [engineer_email],
+        "subject": "New Scooter Repair Request",
+        "text": email_message
+    }
+)
+```
+
+Email delivery responses are logged to console for debugging.
+
+### Database Transaction
+
+The endpoint implements transaction management:
+- **Commit:** On successful completion of both database operations
+- **Rollback:** On any exception during the process
+- **Cleanup:** Cursor and connection are closed in the finally block
+
+### Response
+
+Renders the appropriate HTML template based on the `page_id` parameter:
+- `page_id = 1`: Renders `customer/customer.html`
+- `page_id = 2`: Renders `admin/admin.html`
+
+### Internal Messages
+
+The function sets one of the following messages internally:
+- `"Repair entry added successfully"` - on successful creation and email notification
+- `"Error: [error details]"` - on failure with rollback
+
+### Example Request
+
+```bash
+curl -X POST http://localhost:5000/add_repair/2 \
+  -F "scooter_id=5" \
+  -F "user_id=12" \
+  -F "description=Battery not charging properly. Scooter stops after 5 minutes of use."
+```
+
+### Error Handling
+
+The endpoint handles errors gracefully:
+1. Catches all exceptions during database operations
+2. Performs transaction rollback to maintain data integrity
+3. Sets appropriate error messages
+4. Ensures database connections are properly closed
+
+### Console Output
+
+For each engineer notification, the system logs:
+```
+Email sent to engineer@example.com. Response: [Mailgun API response]
+```
+
+### Database Tables Affected
+
+1. **scooters table:**
+   - Updates `Status` field to "To Be Repaired"
+
+2. **repairs table:**
+   - Inserts new record with:
+     - ScooterID
+     - UserID (reporter)
+     - RepairStatus (set to "In Progress")
+     - Description
+
+### Security Considerations
+
+<Warning>
+  The current implementation includes placeholder values for Mailgun credentials ("MAILGUN API", "API KEY", "MAILGUN EMAIL"). These should be replaced with actual credentials stored securely in environment variables or a configuration file.
+</Warning>

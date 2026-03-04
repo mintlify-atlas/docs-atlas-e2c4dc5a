@@ -1,0 +1,131 @@
+---
+title: "Register User"
+api: "POST /register/{page_id}"
+description: "Register a new user account with bcrypt password hashing"
+---
+
+## Overview
+
+Creates a new user account in the ScooterShare platform. Passwords are securely hashed using bcrypt before storage. The endpoint supports different page_id values to control the response rendering.
+
+## Authentication
+
+No authentication required (public endpoint).
+
+## Path Parameters
+
+<ParamField path="page_id" type="integer" required>
+  Controls the response template:
+  - `1`: Returns registration page with success/error message
+  - `2`: Returns admin page after registration
+</ParamField>
+
+## Request Body
+
+<ParamField body="userType" type="string" required>
+  Type of user account. Options: `"Customer"`, `"Engineer"`, `"System Admin"`
+</ParamField>
+
+<ParamField body="userName" type="string" required>
+  Unique username for the account
+</ParamField>
+
+<ParamField body="password" type="string" required>
+  User password (will be hashed with bcrypt before storage)
+</ParamField>
+
+<ParamField body="firstName" type="string" required>
+  User's first name
+</ParamField>
+
+<ParamField body="lastName" type="string" required>
+  User's last name
+</ParamField>
+
+<ParamField body="phoneNumber" type="string" required>
+  User's phone number
+</ParamField>
+
+<ParamField body="email" type="string" required>
+  User's email address (must be unique)
+</ParamField>
+
+## Response
+
+<ResponseField name="status" type="string">
+  HTTP status code: `201` for success, `500` for failure
+</ResponseField>
+
+<ResponseField name="message" type="string">
+  Success message: "User registered successfully" or error message: "User not inserted. User may already exist"
+</ResponseField>
+
+<ResponseField name="template" type="string">
+  Rendered HTML template (register.html or admin.html depending on page_id)
+</ResponseField>
+
+## Implementation Details
+
+### Password Hashing
+
+Passwords are hashed using Flask-Bcrypt:
+
+```python
+hashed_password = bcrypt.generate_password_hash(
+    data["password"]).decode('utf-8')
+```
+
+### Database Schema
+
+User data is inserted into the `users` table:
+
+```python
+insert_query = """INSERT INTO users (UserType, Username,
+    Password, FirstName, LastName,
+    PhoneNumber, Email, AvailableMoney)
+    VALUES (%s, %s, %s, %s, %s, %s, %s, %s)"""
+```
+
+Initial `AvailableMoney` is set to `0`.
+
+## Request Example
+
+```bash
+curl -X POST "http://localhost:5000/register/1" \
+  -H "Content-Type: application/x-www-form-urlencoded" \
+  -d "userType=Customer" \
+  -d "userName=johndoe" \
+  -d "password=securepass123" \
+  -d "firstName=John" \
+  -d "lastName=Doe" \
+  -d "phoneNumber=+1234567890" \
+  -d "email=john.doe@example.com"
+```
+
+## Response Examples
+
+### Success (201)
+
+Returns rendered HTML template with message:
+```
+User registered successfully
+```
+
+### Error (500)
+
+Returns rendered HTML template with message:
+```
+User not inserted. User may already exist
+```
+
+## Error Handling
+
+- **Duplicate Username/Email**: Returns 500 error if username or email already exists
+- **Database Connection Failure**: Returns 500 error
+- **Missing Required Fields**: Database constraint error, returns 500
+
+## Security Notes
+
+- Passwords are hashed using bcrypt before storage
+- Plain text passwords are never stored in the database
+- Database connection uses parameterized queries to prevent SQL injection

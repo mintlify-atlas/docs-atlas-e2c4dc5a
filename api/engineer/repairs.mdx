@@ -1,0 +1,157 @@
+---
+title: 'Repair Management'
+description: 'Endpoints for managing scooter repairs and repair status tracking'
+---
+
+## GET /reported_scooters
+
+Retrieves all scooters that have been reported as needing repair.
+
+**Query**: `SELECT * FROM scooters WHERE Status = 'To Be Repaired'`
+
+### Response
+
+<ResponseField name="scooters" type="array">
+  Array of reported scooters requiring repair
+  
+  <ResponseField name="ScooterID" type="integer">
+    Unique identifier for the scooter
+  </ResponseField>
+  
+  <ResponseField name="Make" type="string">
+    Manufacturer or model of the scooter
+  </ResponseField>
+  
+  <ResponseField name="Colour" type="string">
+    Color of the scooter
+  </ResponseField>
+  
+  <ResponseField name="Location" type="string">
+    Current location of the scooter
+  </ResponseField>
+  
+  <ResponseField name="RemainingPower" type="number">
+    Battery level remaining
+  </ResponseField>
+  
+  <ResponseField name="CostPerTime" type="number">
+    Rental cost per time unit
+  </ResponseField>
+  
+  <ResponseField name="Status" type="string">
+    Status of the scooter (will be "To Be Repaired")
+  </ResponseField>
+</ResponseField>
+
+### Response Example
+
+```json
+{
+  "scooters": [
+    {
+      "ScooterID": 1,
+      "Make": "Xiaomi Pro",
+      "Colour": "Black",
+      "Location": "Main Street",
+      "RemainingPower": 45.5,
+      "CostPerTime": 0.25,
+      "Status": "To Be Repaired"
+    }
+  ]
+}
+```
+
+---
+
+## GET /repair_statuses
+
+Retrieves all repair requests and their current status from the repairs table.
+
+**Query**: `SELECT * FROM repairs`
+
+### Response
+
+<ResponseField name="repairs" type="array">
+  Array of all repair requests
+  
+  <ResponseField name="RequestID" type="integer">
+    Unique identifier for the repair request
+  </ResponseField>
+  
+  <ResponseField name="ScooterID" type="integer">
+    ID of the scooter requiring repair
+  </ResponseField>
+  
+  <ResponseField name="UserID" type="integer">
+    ID of the user who reported the issue
+  </ResponseField>
+  
+  <ResponseField name="RepairStatus" type="string">
+    Current status of the repair ("In Progress" or "Complete")
+  </ResponseField>
+  
+  <ResponseField name="Description" type="string">
+    Description of the repair issue
+  </ResponseField>
+</ResponseField>
+
+### Response Example
+
+```json
+{
+  "repairs": [
+    {
+      "RequestID": 101,
+      "ScooterID": 1,
+      "UserID": 42,
+      "RepairStatus": "In Progress",
+      "Description": "Front wheel alignment issue"
+    },
+    {
+      "RequestID": 102,
+      "ScooterID": 5,
+      "UserID": 38,
+      "RepairStatus": "Complete",
+      "Description": "Battery replacement needed"
+    }
+  ]
+}
+```
+
+---
+
+## POST /update_repair_state
+
+Updates the repair status of a specific repair request. Toggles the status between "In Progress" and "Complete".
+
+### Parameters
+
+<ParamField body="request_id" type="string" required>
+  The ID of the repair request to update
+</ParamField>
+
+### Database Operations
+
+1. **Fetch Current Status**: `SELECT RepairStatus FROM repairs WHERE RequestID = %s`
+2. **Toggle Status**: 
+   - If current status is "Complete" → change to "In Progress"
+   - If current status is "In Progress" → change to "Complete"
+3. **Update Status**: `UPDATE repairs SET RepairStatus = %s WHERE RequestID = %s`
+
+### Response
+
+Redirects to `/repair_status_page` on success.
+
+### Error Response
+
+```json
+{
+  "error": "Error message description"
+}
+```
+
+### Notes
+
+<Note>
+There is a known issue (FIXME in code): This endpoint should also update the status in the scooters table to reflect the repair completion.
+</Note>

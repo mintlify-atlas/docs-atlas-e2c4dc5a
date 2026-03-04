@@ -1,0 +1,226 @@
+---
+title: 'Customer Management'
+description: 'Manage customer accounts and information'
+---
+
+## Get Customer List
+
+<api>GET /customer_list</api>
+
+Retrieves a list of all customers in the system (users with UserType = 'Customer').
+
+### Database Query
+
+This endpoint executes the following SQL query:
+
+```sql
+SELECT * FROM users WHERE UserType = 'Customer'
+```
+
+### Response
+
+Returns a JSON array of customer records. Each record is a tuple containing:
+- UserID (index 0)
+- UserType (index 1)
+- Username (index 2)
+- Password (index 3)
+- FirstName (index 4)
+- LastName (index 5)
+- PhoneNumber (index 6)
+- Email (index 7)
+- AvailableMoney (index 8)
+
+<ResponseField name="data" type="array">
+  Array of customer tuples from the database
+</ResponseField>
+
+<ResponseField name="error" type="string">
+  Error message if the request fails
+</ResponseField>
+
+### Example Response
+
+```json
+[
+  [1, "Customer", "john_doe", "hashed_password", "John", "Doe", "555-0123", "john@example.com", 50.00],
+  [2, "Customer", "jane_smith", "hashed_password", "Jane", "Smith", "555-0456", "jane@example.com", 75.50]
+]
+```
+
+---
+
+## Get Customer by ID
+
+<api>GET /customer_by_id/\{customer_id\}</api>
+
+Retrieves detailed information about a specific customer.
+
+### Path Parameters
+
+<ParamField path="customer_id" type="integer" required>
+  The unique identifier of the customer (UserID)
+</ParamField>
+
+### Database Query
+
+This endpoint executes the following SQL query:
+
+```sql
+SELECT * FROM users WHERE UserID = %s
+```
+
+### Response
+
+<ResponseField name="customer_id" type="integer">
+  The requested customer ID
+</ResponseField>
+
+<ResponseField name="customer_details" type="object">
+  Detailed information about the customer
+  
+  <Expandable title="customer_details object">
+    <ResponseField name="UserID" type="integer">
+      Unique identifier for the user
+    </ResponseField>
+    
+    <ResponseField name="UserType" type="string">
+      Type of user (e.g., "Customer", "Admin", "Engineer")
+    </ResponseField>
+    
+    <ResponseField name="Username" type="string">
+      Username for login
+    </ResponseField>
+    
+    <ResponseField name="Password" type="string">
+      Hashed password (Note: This should ideally not be returned in production)
+    </ResponseField>
+    
+    <ResponseField name="FirstName" type="string">
+      Customer's first name
+    </ResponseField>
+    
+    <ResponseField name="LastName" type="string">
+      Customer's last name
+    </ResponseField>
+    
+    <ResponseField name="PhoneNumber" type="string">
+      Customer's phone number
+    </ResponseField>
+    
+    <ResponseField name="Email" type="string">
+      Customer's email address
+    </ResponseField>
+    
+    <ResponseField name="AvailableMoney" type="float">
+      Customer's current account balance
+    </ResponseField>
+  </Expandable>
+</ResponseField>
+
+<ResponseField name="message" type="string">
+  Message if customer is not found (404 status)
+</ResponseField>
+
+<ResponseField name="error" type="string">
+  Error message if the request fails (500 status)
+</ResponseField>
+
+### Example Response
+
+```json
+{
+  "customer_id": 1,
+  "customer_details": {
+    "UserID": 1,
+    "UserType": "Customer",
+    "Username": "john_doe",
+    "Password": "hashed_password",
+    "FirstName": "John",
+    "LastName": "Doe",
+    "PhoneNumber": "555-0123",
+    "Email": "john@example.com",
+    "AvailableMoney": 50.00
+  }
+}
+```
+
+### Error Response
+
+```json
+{
+  "message": "Customer not found"
+}
+```
+
+---
+
+## Edit User
+
+<api>POST /edit_user</api>
+
+Updates an existing user's information.
+
+### Form Data Parameters
+
+<ParamField body="user_id" type="integer" required>
+  The unique identifier of the user to update
+</ParamField>
+
+<ParamField body="usertype" type="string" required>
+  Updated user type (e.g., "Customer", "Admin", "Engineer")
+</ParamField>
+
+<ParamField body="username" type="string" required>
+  Updated username
+</ParamField>
+
+<ParamField body="firstname" type="string" required>
+  Updated first name
+</ParamField>
+
+<ParamField body="lastname" type="string" required>
+  Updated last name
+</ParamField>
+
+<ParamField body="phonenumber" type="string" required>
+  Updated phone number
+</ParamField>
+
+<ParamField body="email" type="string" required>
+  Updated email address
+</ParamField>
+
+<ParamField body="availablemoney" type="float" required>
+  Updated account balance
+</ParamField>
+
+### Database Operation
+
+This endpoint performs an UPDATE operation on the `users` table:
+
+```sql
+UPDATE users
+SET UserType = %s,
+    Username = %s,
+    FirstName = %s,
+    LastName = %s,
+    PhoneNumber = %s,
+    Email = %s,
+    AvailableMoney = %s
+WHERE UserID = %s
+```
+
+The operation includes:
+- Transaction commit on success
+- Error handling with rollback on failure
+- Debug printing of parameters
+
+### Response
+
+Renders the admin.html template after the update operation.
+
+### Internal Messages
+
+The function sets one of the following messages internally:
+- `"User updated successfully"` - on successful update
+- `"Error: [error details]"` - on failure with rollback

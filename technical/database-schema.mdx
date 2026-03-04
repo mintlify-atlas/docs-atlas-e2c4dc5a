@@ -1,0 +1,544 @@
+---
+title: Database Schema
+description: Complete database schema documentation for ScooterShare
+---
+
+## Overview
+
+ScooterShare uses MySQL as its database backend, with a schema designed to support user management, scooter fleet tracking, bookings, repairs, and usage analytics.
+
+## Database Tables
+
+### users
+
+Stores all user accounts including customers, admins, and engineers.
+
+<ParamField path="UserID" type="INT" required>
+  Primary key, auto-incrementing user identifier
+</ParamField>
+
+<ParamField path="UserType" type="VARCHAR">
+  User role: `Customer`, `System Admin`, or `Engineer`
+</ParamField>
+
+<ParamField path="Username" type="VARCHAR" required>
+  Unique username for login
+</ParamField>
+
+<ParamField path="Password" type="VARCHAR" required>
+  Bcrypt-hashed password (stored as UTF-8 string)
+</ParamField>
+
+<ParamField path="FirstName" type="VARCHAR">
+  User's first name
+</ParamField>
+
+<ParamField path="LastName" type="VARCHAR">
+  User's last name
+</ParamField>
+
+<ParamField path="PhoneNumber" type="VARCHAR">
+  Contact phone number
+</ParamField>
+
+<ParamField path="Email" type="VARCHAR" required>
+  Email address used for login and notifications
+</ParamField>
+
+<ParamField path="AvailableMoney" type="DECIMAL(10,2)">
+  Current account balance for scooter rentals
+</ParamField>
+
+#### Example Query
+
+```python
+insert_query = """INSERT INTO users (UserType, Username,
+    Password, FirstName, LastName,
+    PhoneNumber, Email, AvailableMoney)
+    VALUES (%s, %s, %s, %s, %s, %s, %s, %s)"""
+
+select_query = """SELECT Password, UserID, UserType, Username 
+                  FROM users WHERE Email= %s"""
+```
+
+---
+
+### scooters
+
+Tracks the scooter fleet with location and status information.
+
+<ParamField path="ScooterID" type="INT" required>
+  Primary key, unique scooter identifier
+</ParamField>
+
+<ParamField path="Make" type="VARCHAR">
+  Scooter manufacturer/model
+</ParamField>
+
+<ParamField path="Colour" type="VARCHAR">
+  Physical color of the scooter
+</ParamField>
+
+<ParamField path="Location" type="VARCHAR">
+  Current GPS coordinates or address
+</ParamField>
+
+<ParamField path="RemainingPower" type="INT">
+  Battery percentage (0-100)
+</ParamField>
+
+<ParamField path="CostPerTime" type="DECIMAL(10,2)">
+  Rental cost per time period
+</ParamField>
+
+<ParamField path="Status" type="VARCHAR">
+  Scooter status: `Available`, `Occupying`, or `To Be Repaired`
+</ParamField>
+
+#### Example Queries
+
+<Tabs>
+  <Tab title="Select Available">
+    ```python
+    query = "SELECT * FROM scooters WHERE status = 'Available'"
+    cursor.execute(query)
+    scooter_data = cursor.fetchall()
+    ```
+  </Tab>
+  
+  <Tab title="Update Status">
+    ```python
+    update_query = """UPDATE scooters SET Status = 'Occupying' 
+                      WHERE ScooterID = %s"""
+    cursor.execute(update_query, (scooter_id,))
+    ```
+  </Tab>
+  
+  <Tab title="Insert New">
+    ```python
+    insert_query = """INSERT INTO scooters (Make, Colour, Location,
+        RemainingPower, CostPerTime, Status) 
+        VALUES (%s, %s, %s, %s, %s, %s)"""
+    cursor.execute(insert_query, (make, colour, location, 
+                   remaining_power, cost_per_time, status))
+    ```
+  </Tab>
+  
+  <Tab title="Update Location">
+    ```python
+    update_query = """UPDATE scooters SET Location = %s 
+                      WHERE ScooterID = %s"""
+    cursor.execute(update_query, (new_location, scooter_id))
+    ```
+  </Tab>
+</Tabs>
+
+---
+
+### bookings
+
+Records all scooter bookings with timing and lock status.
+
+<ParamField path="BookingID" type="INT" required>
+  Primary key, unique booking identifier
+</ParamField>
+
+<ParamField path="ScooterID" type="INT" required>
+  Foreign key to scooters table
+</ParamField>
+
+<ParamField path="UserID" type="INT" required>
+  Foreign key to users table
+</ParamField>
+
+<ParamField path="BookingTime" type="DATETIME">
+  Timestamp when booking was created
+</ParamField>
+
+<ParamField path="BookingStatus" type="VARCHAR">
+  Status: `Active`, `Completed`, or `Cancelled`
+</ParamField>
+
+<ParamField path="LockStatus" type="VARCHAR">
+  Lock state: `Locked` or `Unlocked`
+</ParamField>
+
+#### Example Queries
+
+<Tabs>
+  <Tab title="Create Booking">
+    ```python
+    insert_query = """INSERT INTO bookings 
+        (ScooterID, UserID, BookingTime, BookingStatus, LockStatus)
+        VALUES (%s, %s, NOW(), %s, 'Locked')"""
+    cursor.execute(insert_query, (scooter_id, user_id, 'Active'))
+    ```
+  </Tab>
+  
+  <Tab title="Get User Bookings">
+    ```python
+    query = """SELECT BookingID, ScooterID, BookingTime, 
+               BookingStatus, LockStatus 
+               FROM bookings WHERE UserID = %s"""
+    cursor.execute(query, (user_id,))
+    ```
+  </Tab>
+  
+  <Tab title="Update Lock Status">
+    ```python
+    update_query = """UPDATE bookings SET LockStatus = 'Unlocked' 
+                      WHERE BookingID = %s"""
+    cursor.execute(update_query, (booking_id,))
+    ```
+  </Tab>
+  
+  <Tab title="Cancel Booking">
+    ```python
+    update_query = """UPDATE bookings SET BookingStatus = 'Cancelled' 
+                      WHERE BookingID = %s"""
+    cursor.execute(update_query, (booking_id,))
+    ```
+  </Tab>
+</Tabs>
+
+---
+
+### repairs
+
+Tracks maintenance and repair requests for scooters.
+
+<ParamField path="RequestID" type="INT" required>
+  Primary key, unique repair request identifier
+</ParamField>
+
+<ParamField path="ScooterID" type="INT" required>
+  Foreign key to scooters table
+</ParamField>
+
+<ParamField path="UserID" type="INT" required>
+  User who reported the issue
+</ParamField>
+
+<ParamField path="RepairStatus" type="VARCHAR">
+  Status: `In Progress` or `Complete`
+</ParamField>
+
+<ParamField path="Description" type="TEXT">
+  Detailed description of the repair issue
+</ParamField>
+
+#### Example Queries
+
+```python
+# Create repair request
+insert_query = """INSERT INTO repairs
+    (ScooterID, UserID, RepairStatus, Description)
+    VALUES (%s, %s, %s, %s)"""
+cursor.execute(insert_query, 
+               (scooter_id, user_id, 'In Progress', description))
+
+# Get all repairs
+query = "SELECT * FROM repairs"
+cursor.execute(query)
+
+# Update repair status
+query = "UPDATE repairs SET RepairStatus = %s WHERE RequestID = %s"
+cursor.execute(query, (repair_status, request_id))
+```
+
+<Note>
+  When a repair is created, the scooter status is automatically updated to `To Be Repaired` and email notifications are sent to all engineers.
+</Note>
+
+---
+
+### reviews
+
+Stores customer reviews and ratings for scooters.
+
+<ParamField path="ReviewID" type="INT" required>
+  Primary key, auto-incrementing review identifier
+</ParamField>
+
+<ParamField path="UserID" type="INT" required>
+  Foreign key to users table (reviewer)
+</ParamField>
+
+<ParamField path="ScooterID" type="INT" required>
+  Foreign key to scooters table
+</ParamField>
+
+<ParamField path="Review" type="TEXT">
+  Written review content
+</ParamField>
+
+<ParamField path="Rating" type="INT">
+  Numeric rating value
+</ParamField>
+
+#### Example Queries
+
+```python
+# Add review
+insert_query = """INSERT INTO reviews (UserID, ScooterID, Review, Rating)
+                  VALUES (%s, %s, %s, %s)"""
+cursor.execute(insert_query, (user_id, scooter_id, review, rating))
+
+# Get all reviews
+query = "SELECT * FROM reviews"
+cursor.execute(query)
+```
+
+---
+
+### ranking
+
+Tracks customer loyalty points and gamification.
+
+<ParamField path="RankingID" type="INT" required>
+  Primary key, unique ranking entry identifier
+</ParamField>
+
+<ParamField path="UserID" type="INT" required>
+  Foreign key to users table
+</ParamField>
+
+<ParamField path="points" type="INT">
+  Accumulated points for the user
+</ParamField>
+
+#### Points System
+
+Customers earn 100 points for each scooter booking:
+
+```python
+points_to_increment = 100
+
+# Check if user has existing points
+select_query = "SELECT points FROM ranking WHERE UserID = %s"
+cursor.execute(select_query, (user_id,))
+current_points = cursor.fetchone()
+
+if current_points is not None:
+    # Update existing points
+    new_points = current_points[0] + points_to_increment
+    update_query = "UPDATE ranking SET points = %s WHERE UserID = %s"
+    cursor.execute(update_query, (new_points, user_id))
+else:
+    # Insert new ranking entry
+    insert_query = "INSERT INTO ranking (UserID, points) VALUES (%s, %s)"
+    cursor.execute(insert_query, (user_id, points_to_increment))
+```
+
+---
+
+### scooter_usage
+
+Tracks detailed usage metrics for analytics and billing.
+
+<ParamField path="UsageID" type="INT" required>
+  Primary key, unique usage record identifier
+</ParamField>
+
+<ParamField path="ScooterID" type="INT" required>
+  Foreign key to scooters table
+</ParamField>
+
+<ParamField path="UserID" type="INT" required>
+  Foreign key to users table
+</ParamField>
+
+<ParamField path="TimeUsed" type="INT">
+  Duration of usage in minutes
+</ParamField>
+
+<ParamField path="DistanceCovered" type="DECIMAL(10,2)">
+  Distance traveled in kilometers
+</ParamField>
+
+<ParamField path="UsageDate" type="DATE">
+  Date of the usage session
+</ParamField>
+
+#### Example Queries
+
+<Tabs>
+  <Tab title="Insert Usage">
+    ```python
+    insert_query = """INSERT INTO scooter_usage 
+        (ScooterID, UserID, TimeUsed, UsageDate, DistanceCovered) 
+        VALUES (%s, %s, %s, DATE(NOW()), %s)"""
+    cursor.execute(insert_query, (scooter_id, user_id, 10, 10))
+    ```
+  </Tab>
+  
+  <Tab title="Get User History">
+    ```python
+    query = """SELECT UsageID, ScooterID, TimeUsed, DistanceCovered 
+               FROM scooter_usage WHERE UserID = %s"""
+    cursor.execute(query, (user_id,))
+    ```
+  </Tab>
+  
+  <Tab title="Analytics - Daily">
+    ```python
+    query = """SELECT DATE(UsageDate) AS UsageDate, 
+                      SUM(DistanceCovered) AS TotalDistance
+               FROM scooter_usage
+               WHERE ScooterID = %s AND UsageDate >= %s
+               GROUP BY DATE(UsageDate)
+               ORDER BY DATE(UsageDate)"""
+    cursor.execute(query, (scooter_id, one_week_ago))
+    ```
+  </Tab>
+  
+  <Tab title="Analytics - Weekly">
+    ```python
+    query = """SELECT YEARWEEK(UsageDate) AS Week, 
+                      SUM(TimeUsed) AS TotalTime
+               FROM scooter_usage
+               WHERE ScooterID = %s
+               GROUP BY YEARWEEK(UsageDate)
+               ORDER BY YEARWEEK(UsageDate)
+               LIMIT 10"""
+    cursor.execute(query, (scooter_id,))
+    ```
+  </Tab>
+</Tabs>
+
+---
+
+### payments
+
+Records account top-up transactions.
+
+<ParamField path="PaymentID" type="INT" required>
+  Primary key, unique payment identifier
+</ParamField>
+
+<ParamField path="UserID" type="INT" required>
+  Foreign key to users table
+</ParamField>
+
+<ParamField path="Amount" type="DECIMAL(10,2)" required>
+  Payment amount
+</ParamField>
+
+#### Balance Management
+
+```python
+# Get current balance
+select_query = "SELECT AvailableMoney FROM users WHERE UserID = %s"
+cursor.execute(select_query, (user_id,))
+current_money = cursor.fetchone()[0]
+
+# Update balance
+new_balance = current_money + topup_amount
+update_query = "UPDATE users SET AvailableMoney = %s WHERE UserID = %s"
+cursor.execute(update_query, (new_balance, user_id))
+```
+
+## Entity Relationships
+
+<CardGroup cols={2}>
+  <Card title="User → Bookings" icon="arrow-right">
+    One user can have multiple bookings (1:N)
+  </Card>
+  
+  <Card title="Scooter → Bookings" icon="arrow-right">
+    One scooter can have multiple bookings (1:N)
+  </Card>
+  
+  <Card title="User → Reviews" icon="arrow-right">
+    One user can write multiple reviews (1:N)
+  </Card>
+  
+  <Card title="Scooter → Reviews" icon="arrow-right">
+    One scooter can have multiple reviews (1:N)
+  </Card>
+  
+  <Card title="Scooter → Repairs" icon="arrow-right">
+    One scooter can have multiple repair requests (1:N)
+  </Card>
+  
+  <Card title="User → Ranking" icon="arrow-right">
+    One user has one ranking entry (1:1)
+  </Card>
+  
+  <Card title="Scooter → Usage" icon="arrow-right">
+    One scooter has multiple usage records (1:N)
+  </Card>
+  
+  <Card title="User → Payments" icon="arrow-right">
+    One user can have multiple payment records (1:N)
+  </Card>
+</CardGroup>
+
+## Transaction Examples
+
+### Complete Booking Flow
+
+```python
+try:
+    connection.begin()
+    
+    # 1. Update scooter status
+    update_scooter_query = """UPDATE scooters 
+                              SET Status = 'Occupying' 
+                              WHERE ScooterID = %s"""
+    cursor.execute(update_scooter_query, (scooter_id,))
+    
+    # 2. Create booking
+    insert_booking_query = """INSERT INTO bookings 
+        (ScooterID, UserID, BookingTime, BookingStatus, LockStatus)
+        VALUES (%s, %s, NOW(), %s, 'Locked')"""
+    cursor.execute(insert_booking_query, 
+                   (scooter_id, user_id, 'Active'))
+    
+    # 3. Award points
+    update_points_query = """UPDATE ranking SET points = %s 
+                            WHERE UserID = %s"""
+    cursor.execute(update_points_query, (new_points, user_id))
+    
+    connection.commit()
+except Exception as e:
+    connection.rollback()
+    raise e
+```
+
+### Complete Rental Flow
+
+```python
+try:
+    # 1. Charge user
+    new_balance = current_money - cost_per_time
+    update_query = """UPDATE users SET AvailableMoney = %s 
+                      WHERE UserID = %s"""
+    cursor.execute(update_query, (new_balance, user_id))
+    
+    # 2. Lock scooter
+    update_query = """UPDATE bookings SET LockStatus = 'Locked' 
+                      WHERE BookingID = %s"""
+    cursor.execute(update_query, (booking_id,))
+    
+    # 3. Complete booking
+    update_query = """UPDATE bookings SET BookingStatus = 'Completed' 
+                      WHERE BookingID = %s"""
+    cursor.execute(update_query, (booking_id,))
+    
+    # 4. Make scooter available
+    update_query = """UPDATE scooters SET Status = 'Available', 
+                      Location = %s WHERE ScooterID = %s"""
+    cursor.execute(update_query, (new_location, scooter_id))
+    
+    # 5. Record usage
+    insert_query = """INSERT INTO scooter_usage 
+        (ScooterID, UserID, TimeUsed, UsageDate, DistanceCovered) 
+        VALUES (%s, %s, %s, DATE(NOW()), %s)"""
+    cursor.execute(insert_query, (scooter_id, user_id, 10, 10))
+    
+    connection.commit()
+except Exception as e:
+    connection.rollback()
+    raise e
+```

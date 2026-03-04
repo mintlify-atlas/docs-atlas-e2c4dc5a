@@ -1,0 +1,368 @@
+---
+title: Customer User Guide
+description: Complete guide for customers using the ScooterShare platform
+---
+
+## Overview
+
+Welcome to ScooterShare! This guide will help you navigate the platform, book scooters, manage your account balance, and more.
+
+## Getting Started
+
+### Viewing Available Scooters
+
+Browse all available scooters in your area:
+
+<Steps>
+  <Step title="Access Available Scooters">
+    Navigate to `/view_available_scooters` to see all scooters with status "Available"
+  </Step>
+  
+  <Step title="Review Scooter Details">
+    Each scooter listing shows:
+    - **ScooterID**: Unique identifier
+    - **Make**: Scooter manufacturer
+    - **Colour**: Scooter color
+    - **Location**: Current location
+    - **RemainingPower**: Battery percentage
+    - **CostPerTime**: Rental cost per time unit
+    - **Status**: Availability status
+  </Step>
+</Steps>
+
+<Info>
+The system fetches data from the `/available_scooters` API endpoint (customer.py:240)
+</Info>
+
+## Booking Scooters
+
+### How to Book a Scooter
+
+<Steps>
+  <Step title="Select a Scooter">
+    Choose an available scooter from the list and note its ScooterID
+  </Step>
+  
+  <Step title="Initiate Booking">
+    Click the book button or navigate to `/book_scooter_page/<scooter_id>`
+  </Step>
+  
+  <Step title="Confirm Booking">
+    The system will:
+    - Update scooter status to "Occupying"
+    - Create a booking record with status "Active"
+    - Set lock status to "Locked"
+    - Award you 100 ranking points
+  </Step>
+</Steps>
+
+<Note>
+Booking creates an entry in the bookings table and automatically awards 100 points to your ranking (customer.py:90-154)
+</Note>
+
+### Managing Your Bookings
+
+<CardGroup cols={2}>
+  <Card title="View Bookings" icon="list">
+    Access `/customer_view_bookings` to see all your booking history including:
+    - Booking ID
+    - Scooter ID
+    - Booking time
+    - Booking status (Active/Completed/Cancelled)
+    - Lock status (Locked/Unlocked)
+  </Card>
+  
+  <Card title="Cancel Booking" icon="xmark">
+    Navigate to `/customer_cancel_booking/<booking_id>` to cancel an active booking. This will:
+    - Update booking status to "Cancelled"
+    - Set scooter status back to "Available"
+  </Card>
+</CardGroup>
+
+<Info>
+View your bookings via the `/customer_bookings/<user_id>` endpoint (customer.py:165)
+</Info>
+
+## Using Scooters
+
+### Lock and Unlock Features
+
+#### Unlocking a Scooter
+
+<Steps>
+  <Step title="Access Lock/Unlock Page">
+    Navigate to `/customer_lock_unlock` to view your active bookings
+  </Step>
+  
+  <Step title="Check Account Balance">
+    Ensure you have sufficient funds (at least equal to CostPerTime)
+  </Step>
+  
+  <Step title="Unlock Scooter">
+    Click unlock for your booked scooter at `/customer_unlock_scooter/<scooter_id>/<booking_id>`
+    
+    The system verifies your balance before unlocking
+  </Step>
+</Steps>
+
+<Warning>
+You cannot unlock a scooter if your available balance is less than the CostPerTime (customer.py:574-604)
+</Warning>
+
+#### Locking a Scooter
+
+When you're done using the scooter:
+
+<Steps>
+  <Step title="Provide New Location">
+    Enter the location where you're parking the scooter
+  </Step>
+  
+  <Step title="Lock the Scooter">
+    Navigate to `/customer_lock_scooter/<scooter_id>/<booking_id>?newLocation=<location>`
+  </Step>
+  
+  <Step title="Automatic Processing">
+    The system will:
+    - Deduct the CostPerTime from your balance
+    - Update lock status to "Locked"
+    - Update booking status to "Completed"
+    - Set scooter status to "Available"
+    - Update scooter location
+    - Create a usage record
+  </Step>
+</Steps>
+
+<Info>
+Locking a scooter automatically creates a usage entry with 10 minutes time and 10km distance (customer.py:606-670)
+</Info>
+
+## Account Management
+
+### Viewing Your Balance
+
+Check your account balance:
+
+<Steps>
+  <Step title="Access Balance Page">
+    Navigate to `/customer_view_balance` to view your current available money
+  </Step>
+  
+  <Step title="Review Balance">
+    Your balance is fetched from the `/customer_balance_data/<user_id>` endpoint
+  </Step>
+</Steps>
+
+### Topping Up Your Balance
+
+<Steps>
+  <Step title="Navigate to Top-Up">
+    Access the balance page at `/customer_view_balance`
+  </Step>
+  
+  <Step title="Enter Amount">
+    Submit a form with the desired `topup_amount`
+  </Step>
+  
+  <Step title="Process Payment">
+    POST to `/update_user_money` which will:
+    - Retrieve your current balance
+    - Add the top-up amount
+    - Update your account
+  </Step>
+</Steps>
+
+<Note>
+Top-up amounts are added to your existing balance via the `/update_user_money` endpoint (customer.py:341-373)
+</Note>
+
+## Usage History
+
+Track your scooter usage over time:
+
+<Steps>
+  <Step title="Access Usage History">
+    Navigate to `/customer_usage_history_render`
+  </Step>
+  
+  <Step title="View Records">
+    See all your past scooter usage including:
+    - Usage ID
+    - Scooter ID
+    - Time used (in minutes)
+    - Distance covered (in km)
+    - Usage date
+  </Step>
+</Steps>
+
+<Info>
+Usage history is retrieved from `/customer_usage_history/<user_id>` (customer.py:279)
+</Info>
+
+## Reviews and Ratings
+
+### Adding a Review
+
+<Steps>
+  <Step title="Select Scooter">
+    Navigate to `/add_reviews/<scooter_id>` for the scooter you want to review
+  </Step>
+  
+  <Step title="Fill Review Form">
+    Provide:
+    - User ID (auto-populated from session)
+    - Scooter ID
+    - Review text
+    - Rating (numeric value)
+  </Step>
+  
+  <Step title="Submit Review">
+    POST to `/add_review` to save your review
+  </Step>
+</Steps>
+
+### Viewing Reviews
+
+See all scooter reviews at `/customer_review` which displays:
+- Review ID
+- User information
+- Scooter information
+- Review text
+- Rating
+
+<Info>
+Reviews are stored in the reviews table and can be viewed via `/get_review` (customer.py:402-430)
+</Info>
+
+## Ranking System
+
+### How Rankings Work
+
+<CardGroup cols={2}>
+  <Card title="Earning Points" icon="star">
+    Earn 100 points every time you book a scooter
+  </Card>
+  
+  <Card title="View Rankings" icon="ranking-star">
+    Check the leaderboard at `/customer_ranking` to see:
+    - Your ranking position
+    - User ID
+    - Total points
+  </Card>
+</CardGroup>
+
+<Tip>
+Points are automatically added to your account when you make a booking (customer.py:116-143)
+</Tip>
+
+## Reporting Issues
+
+### Report a Faulty Scooter
+
+If you encounter a problem with a scooter:
+
+<Steps>
+  <Step title="Access Report Page">
+    Navigate to `/customer_report_scooter/<scooter_id>`
+  </Step>
+  
+  <Step title="Submit Report">
+    The form will be pre-populated with scooter details and your user ID
+  </Step>
+  
+  <Step title="Create Repair Request">
+    Submit to `/add_repair/1` which will:
+    - Change scooter status to "To Be Repaired"
+    - Create a repair entry with status "In Progress"
+    - Notify all engineers via email
+  </Step>
+</Steps>
+
+<Warning>
+Once a scooter is reported, its status changes to "To Be Repaired" and it becomes unavailable for booking (admin.py:416)
+</Warning>
+
+## Frequently Asked Questions
+
+<AccordionGroup>
+  <Accordion title="What happens when I book a scooter?">
+    When you book a scooter:
+    1. The scooter status changes to "Occupying"
+    2. A booking record is created with status "Active" and lock status "Locked"
+    3. You receive 100 ranking points
+    4. The scooter is reserved for your use
+  </Accordion>
+  
+  <Accordion title="Can I unlock a scooter without sufficient balance?">
+    No, the system checks your available balance against the scooter's CostPerTime. You must have at least the CostPerTime amount in your account to unlock a scooter. If you don't have enough funds, you'll receive an error message prompting you to top up your account.
+  </Accordion>
+  
+  <Accordion title="How is usage tracked?">
+    When you lock a scooter after use, the system automatically records:
+    - Scooter ID
+    - User ID
+    - Time used (currently set to 10 minutes)
+    - Distance covered (currently set to 10 km)
+    - Usage date
+    
+    This creates a usage history entry that you can view later.
+  </Accordion>
+  
+  <Accordion title="What happens when I cancel a booking?">
+    Canceling a booking:
+    1. Updates the booking status to "Cancelled"
+    2. Changes the scooter status back to "Available"
+    3. Makes the scooter available for other customers to book
+    
+    Note: Cancellation does not affect your ranking points.
+  </Accordion>
+  
+  <Accordion title="How do I see my active bookings?">
+    Navigate to `/customer_view_bookings` to see all your bookings, including:
+    - Active bookings (currently in use)
+    - Completed bookings (past rides)
+    - Cancelled bookings
+    
+    Each booking shows the scooter ID, booking time, status, and lock status.
+  </Accordion>
+  
+  <Accordion title="Can I review any scooter?">
+    Yes, you can add reviews for any scooter by navigating to `/add_reviews/<scooter_id>`. Your review should include a text description and a numeric rating. All reviews are visible on the customer review page.
+  </Accordion>
+</AccordionGroup>
+
+## Quick Reference
+
+<CardGroup cols={2}>
+  <Card title="View Scooters" icon="magnifying-glass">
+    `/view_available_scooters`
+  </Card>
+  
+  <Card title="Book Scooter" icon="calendar-check">
+    `/book_scooter_page/<scooter_id>`
+  </Card>
+  
+  <Card title="My Bookings" icon="list-check">
+    `/customer_view_bookings`
+  </Card>
+  
+  <Card title="Lock/Unlock" icon="lock">
+    `/customer_lock_unlock`
+  </Card>
+  
+  <Card title="Balance" icon="wallet">
+    `/customer_view_balance`
+  </Card>
+  
+  <Card title="Usage History" icon="clock-rotate-left">
+    `/customer_usage_history_render`
+  </Card>
+  
+  <Card title="Rankings" icon="trophy">
+    `/customer_ranking`
+  </Card>
+  
+  <Card title="Reviews" icon="star">
+    `/customer_review`
+  </Card>
+</CardGroup>

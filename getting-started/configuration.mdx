@@ -1,0 +1,155 @@
+---
+title: Configuration
+description: Configure ScooterShare database connection and application settings
+---
+
+## Overview
+
+ScooterShare requires configuration for both the Flask application and the MySQL database connection. Configuration is managed through the `config.ini` file and application settings in `app.py`.
+
+## Configuration File Setup
+
+<Steps>
+  <Step title="Locate the Config File">
+    Navigate to the `src` directory where the application code is located:
+    
+    ```bash
+    cd src
+    ```
+    
+    You should find a `config.ini` file in this directory.
+  </Step>
+
+  <Step title="Configure Network Settings">
+    Edit the `config.ini` file to set your Raspberry Pi's IP address and port:
+    
+    ```ini
+    [app]
+    ip_address = 192.168.0.3
+    port = 5000
+    ```
+    
+    <Note>
+      Replace `192.168.0.3` with your Raspberry Pi's actual IP address on your local network. You can find this by running `hostname -I` on your Pi.
+    </Note>
+  </Step>
+
+  <Step title="Find Your Pi's IP Address">
+    To get your Raspberry Pi's IP address:
+    
+    ```bash
+    hostname -I
+    ```
+    
+    Use the first IP address shown (typically in the format `192.168.x.x`).
+  </Step>
+</Steps>
+
+## Database Configuration
+
+The application uses MySQL for data storage. You need to configure database credentials in `app.py`.
+
+<Warning>
+  The current codebase stores database credentials directly in `app.py`. In a production environment, you should use environment variables or a secure configuration management system.
+</Warning>
+
+### Setting Database Credentials
+
+Edit the `src/app.py` file and update the database configuration variables (lines 59-62):
+
+```python
+HOST = "your-database-host"
+USER = "your-database-user"
+PASSWORD = "your-database-password"
+DATASBASE = "scootershare_db"
+```
+
+### Database Connection Parameters
+
+| Parameter | Description | Example |
+|-----------|-------------|---------|
+| `HOST` | MySQL server hostname or IP | `localhost` or `192.168.0.5` |
+| `USER` | Database username | `scooter_admin` |
+| `PASSWORD` | Database password | `secure_password_123` |
+| `DATABASE` | Database name | `scootershare_db` |
+
+## Application Settings
+
+The Flask application has several configuration settings in `app.py` that you may want to customize:
+
+### Session Configuration
+
+The app uses server-side sessions with SQLAlchemy:
+
+```python
+app.config['SECRET_KEY'] = "JEFF"
+app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///db.sqlite3'
+app.config['SESSION_TYPE'] = 'sqlalchemy'
+```
+
+<Warning>
+  The default `SECRET_KEY` value "JEFF" is not secure. For production deployments, generate a secure random key:
+  
+  ```python
+  import secrets
+  app.config['SECRET_KEY'] = secrets.token_hex(16)
+  ```
+</Warning>
+
+### Session Storage
+
+Sessions are stored in a local SQLite database (`db.sqlite3`) for persistence across application restarts. This file will be created automatically in the `src` directory.
+
+## Database Schema Setup
+
+<Note>
+  The application expects a MySQL database with specific tables for users, scooters, and bookings. Make sure your database is properly set up before running the application.
+</Note>
+
+### Required Tables
+
+The application requires the following database tables:
+
+- **users** - Stores user accounts (customers, engineers, admins)
+- **scooters** - Stores scooter information and status
+- **bookings** - Stores booking history
+- **transactions** - Stores payment and top-up history
+
+<Warning>
+  Database setup scripts are not included in the repository. You will need to create the database schema separately or import from an existing backup.
+</Warning>
+
+## Configuration Checklist
+
+Before running the application, verify:
+
+- [ ] `config.ini` contains your Raspberry Pi's correct IP address
+- [ ] `config.ini` has the correct port (default: 5000)
+- [ ] Database credentials are set in `app.py`
+- [ ] MySQL server is running and accessible
+- [ ] Database schema is created with required tables
+- [ ] Secret key is changed from default value (for production)
+
+## Testing Configuration
+
+You can test your database connection with this Python snippet:
+
+```python
+import MySQLdb
+
+try:
+    connection = MySQLdb.connect(
+        host="your-host",
+        user="your-user",
+        passwd="your-password",
+        db="scootershare_db"
+    )
+    print("Database connection successful!")
+    connection.close()
+except Exception as e:
+    print(f"Connection failed: {e}")
+```
+
+## Next Steps
+
+Once configuration is complete, you're ready to [run the application](/getting-started/running-the-app).

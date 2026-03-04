@@ -1,0 +1,528 @@
+---
+title: 'Platform Features'
+description: 'Comprehensive overview of ScooterShare capabilities and functionality'
+---
+
+## Overview
+
+ScooterShare delivers a complete scooter-sharing ecosystem with features designed for customers, administrators, and maintenance engineers. Built on Flask and Raspberry Pi, the platform combines IoT hardware integration with powerful web-based management tools.
+
+## Core Features
+
+### 1. User Registration & Authentication
+
+Secure, role-based user management with encrypted credentials.
+
+**Key Capabilities:**
+- Multi-role registration system supporting Customer, System Admin, and Engineer account types
+- BCrypt password hashing for secure credential storage (app.py:96-97)
+- Flask-Session server-side session management
+- Role-based access control with automatic dashboard routing
+- Persistent login state across requests
+
+<CodeGroup>
+
+```python Registration
+# User registration with password encryption
+@app.route('/register/<int:page_id>', methods=['POST'])
+def register_user(page_id):
+    data = request.form
+    hashed_password = bcrypt.generate_password_hash(
+        data["password"]
+    ).decode('utf-8')
+    
+    # Store user with encrypted password
+    cursor.execute(insert_query, (
+        userType, userName, hashed_password,
+        firstName, lastName, phoneNumber, email
+    ))
+```
+
+```python Login
+# Secure login with role-based routing
+@app.route('/login', methods=['POST'])
+def login_user():
+    user = cursor.fetchone()
+    
+    if user and bcrypt.check_password_hash(user[0], password):
+        session['loggedin'] = True
+        session['user_id'] = user[1]
+        session['username'] = user[3]
+        
+        # Route to role-specific dashboard
+        if userType == "Engineer":
+            return render_template("engineer/engineer.html")
+        elif userType == "System Admin":
+            return render_template("admin/admin.html")
+```
+
+</CodeGroup>
+
+<Tip>
+  All passwords are hashed using BCrypt before storage, ensuring credentials are never stored in plain text.
+</Tip>
+
+---
+
+### 2. Scooter Browsing & Discovery
+
+Comprehensive scooter information display with real-time availability.
+
+**Key Capabilities:**
+- View all available scooters with detailed specifications
+- Filter by availability status
+- Real-time location tracking
+- Battery level monitoring
+- Pricing information (cost per time)
+- Scooter attributes: Make, Color, Location, Remaining Power, Status
+
+```python
+# Available scooters endpoint
+@customer_page.route('/available_scooters', methods=['GET'])
+def get_all_scooters():
+    query = "SELECT * FROM scooters WHERE status = 'Available'"
+    
+    scooters = [{
+        "ScooterID": scooter[0],
+        "Make": scooter[1],
+        "Colour": scooter[2],
+        "Location": scooter[3],
+        "RemainingPower": scooter[4],
+        "CostPerTime": scooter[5],
+        "Status": scooter[6]
+    } for scooter in scooter_data]
+```
+
+<Note>
+  Scooters are automatically filtered to show only those with "Available" status, ensuring customers can only book ready-to-use vehicles.
+</Note>
+
+---
+
+### 3. Booking Management
+
+Complete booking lifecycle management with automatic status updates.
+
+**Key Capabilities:**
+- One-click scooter booking
+- Automatic status transitions (Available → Occupying)
+- Booking history tracking with timestamps
+- Active booking management
+- Booking cancellation with status rollback
+- Lock status tracking (Locked/Unlocked)
+
+**Booking Workflow:**
+
+1. **Book Scooter** (customer.py:90-154)
+   - Sets booking status to "Active"
+   - Updates scooter status to "Occupying"
+   - Awards 100 loyalty points
+   - Records booking timestamp
+
+2. **Cancel Booking** (customer.py:198-221)
+   - Updates booking status to "Cancelled"
+   - Returns scooter status to "Available"
+   - Makes scooter available for other users
+
+```python
+# Booking with automatic point rewards
+@customer_page.route('/book_scooter/<int:scooter_id>/<int:user_id>', 
+                     methods=['POST'])
+def book_scooter(scooter_id, user_id):
+    # Update scooter status
+    cursor.execute(
+        "UPDATE scooters SET Status = 'Occupying' WHERE ScooterID = %s",
+        (scooter_id,)
+    )
+    
+    # Create booking
+    cursor.execute(
+        "INSERT INTO bookings (ScooterID, UserID, BookingTime, 
+         BookingStatus, LockStatus) VALUES (%s, %s, NOW(), %s, 'Locked')",
+        (scooter_id, user_id, 'Active')
+    )
+    
+    # Award loyalty points
+    points_to_increment = 100
+```
+
+---
+
+### 4. IoT Lock/Unlock System
+
+Real-time scooter control via Raspberry Pi integration.
+
+**Key Capabilities:**
+- Remote lock/unlock via web interface
+- Balance verification before unlock
+- Automatic charging on lock
+- Location update on return
+- Usage tracking on completion
+- Separate controls for customers and engineers
+
+**Customer Lock/Unlock Flow:**
+
+<Steps>
+  <Step title="Unlock Scooter">
+    Customer requests unlock → System verifies sufficient balance → Lock status updated to "Unlocked"
+  </Step>
+  <Step title="Use Scooter">
+    Customer uses scooter while booking remains active with unlocked status
+  </Step>
+  <Step title="Lock Scooter">
+    Customer locks scooter → Balance charged → Booking marked "Completed" → Scooter status returns to "Available" → Usage record created
+  </Step>
+</Steps>
+
+```python
+# Unlock with balance verification (customer.py:573-604)
+@customer_page.route("/customer_unlock_scooter/<int:scooter_id>/<int:booking_id>")
+def customer_unlock_scooter(scooter_id, booking_id):
+    # Check available balance
+    cursor.execute(
+        "SELECT AvailableMoney FROM users WHERE UserID = %s",
+        (session.get('user_id'),)
+    )
+    available_money = cursor.fetchone()[0]
+    
+    cursor.execute(
+        "SELECT CostPerTime FROM scooters WHERE ScooterID = %s",
+        (scooter_id,)
+    )
+    cost_per_time = cursor.fetchone()[0]
+    
+    if available_money < cost_per_time:
+        return "Not enough funds to unlock scooter. Please topup account"
+    
+    # Unlock scooter
+    cursor.execute(
+        "UPDATE bookings SET LockStatus = 'Unlocked' WHERE BookingID = %s",
+        (booking_id,)
+    )
+```
+
+<Warning>
+  Customers must have sufficient balance to unlock a scooter. The system checks available funds before allowing unlock operations.
+</Warning>
+
+---
+
+### 5. Account & Payment Management
+
+Flexible account balance management and transaction tracking.
+
+**Key Capabilities:**
+- Account balance viewing
+- Self-service top-up functionality
+- Automatic charging on scooter lock
+- Payment history tracking
+- Admin-level balance modification
+- Real-time balance updates
+
+```python
+# Balance top-up (customer.py:341-373)
+@customer_page.route('/update_user_money', methods=['POST'])
+def update_user_money():
+    topup_amount = float(request.form.get('topup_amount'))
+    
+    # Get current balance
+    cursor.execute(
+        "SELECT AvailableMoney FROM users WHERE UserID = %s",
+        (userID,)
+    )
+    currentMoney = float(cursor.fetchone()[0])
+    newBalance = currentMoney + topup_amount
+    
+    # Update balance
+    cursor.execute(
+        "UPDATE users SET AvailableMoney = %s WHERE UserID = %s",
+        (newBalance, userID)
+    )
+```
+
+---
+
+### 6. Data Visualization & Analytics
+
+Powerful usage analytics with Seaborn-generated visualizations.
+
+**Key Capabilities:**
+- Daily distance covered charts (last 7 days)
+- Weekly time usage charts (last 10 weeks)
+- Scooter-specific usage reports
+- Automated chart generation and caching
+- PNG export for reports
+- Admin-only access to analytics
+
+**Generated Visualizations:**
+
+1. **Daily Distance Chart** - Bar chart showing distance covered per day (admin.py:133-144)
+2. **Weekly Time Chart** - Bar chart showing minutes used per week (admin.py:146-156)
+
+```python
+# Generate usage visualizations (admin.py:81-163)
+@admin_page.route('/visualisation/<int:scooter_id>', methods=['GET'])
+def generate_usage_report(scooter_id):
+    # Get last 7 days of distance data
+    query_distance = """
+    SELECT DATE(UsageDate) AS UsageDate, SUM(DistanceCovered) AS TotalDistance
+    FROM scooter_usage
+    WHERE ScooterID = %s AND UsageDate >= %s
+    GROUP BY DATE(UsageDate)
+    ORDER BY DATE(UsageDate)
+    """
+    
+    # Create Seaborn bar chart
+    plt.figure(figsize=(10, 6))
+    sns.barplot(x=dates_distance, y=distances, color='b')
+    plt.xlabel('Date')
+    plt.ylabel('Distance Covered (km)')
+    plt.title(f'Daily Distance Covered for Scooter ID {scooter_id}')
+    plt.savefig('static/daily_distance_chart.png')
+```
+
+<Note>
+  Charts are automatically cleared and regenerated on each request to ensure data freshness.
+</Note>
+
+---
+
+### 7. Maintenance & Repair System
+
+Comprehensive repair workflow with engineer notifications.
+
+**Key Capabilities:**
+- Scooter issue reporting by customers and admins
+- Automatic status change to "To Be Repaired"
+- Email notifications to all engineers via Mailgun
+- Repair status tracking (In Progress/Complete)
+- Repair history maintenance
+- Engineer-specific dashboard for reported scooters
+
+**Repair Workflow:**
+
+<Steps>
+  <Step title="Report Issue">
+    Admin or customer reports scooter problem with description
+  </Step>
+  <Step title="Automatic Notification">
+    System emails all engineers with scooter details and issue description
+  </Step>
+  <Step title="Engineer Response">
+    Engineer views reported scooters and updates repair status
+  </Step>
+  <Step title="Status Management">
+    Engineer toggles status between "In Progress" and "Complete"
+  </Step>
+</Steps>
+
+```python
+# Report scooter issue (admin.py:416-478)
+@admin_page.route('/add_repair/<int:page_id>', methods=['POST'])
+def add_repair(page_id):
+    # Update scooter status
+    cursor.execute(
+        "UPDATE scooters SET Status = 'To Be Repaired' WHERE ScooterID = %s",
+        (scooter_id,)
+    )
+    
+    # Create repair entry
+    cursor.execute(
+        "INSERT INTO repairs (ScooterID, UserID, RepairStatus, Description) 
+         VALUES (%s, %s, %s, %s)",
+        (scooter_id, user_id, 'In Progress', description)
+    )
+    
+    # Email all engineers
+    cursor.execute("SELECT Email FROM users WHERE UserType = 'Engineer'")
+    engineers = cursor.fetchall()
+    
+    for engineer in engineers:
+        requests.post(
+            "MAILGUN_API",
+            data={
+                "to": [engineer_email],
+                "subject": "New Scooter Repair Request",
+                "text": email_message
+            }
+        )
+```
+
+<Tip>
+  The repair system integrates with Mailgun to automatically notify all registered engineers when a new issue is reported.
+</Tip>
+
+---
+
+### 8. Reviews & Gamification
+
+Engagement features to encourage customer participation and quality feedback.
+
+**Key Capabilities:**
+
+**Review System:**
+- Submit scooter reviews with ratings
+- Associate reviews with specific scooters and users
+- View all reviews across the platform
+- Customer and scooter cross-referencing
+
+**Loyalty Points:**
+- Automatic point awards on booking (100 points per booking)
+- Leaderboard rankings
+- Point persistence across sessions
+- Public ranking display
+
+```python
+# Add review (customer.py:375-400)
+@customer_page.route('/add_review', methods=['POST'])
+def add_review():
+    user_id = request.form.get('user_id')
+    scooter_id = request.form.get('scooter_id')
+    review = request.form.get('review')
+    rating = request.form.get('rating')
+    
+    cursor.execute(
+        "INSERT INTO reviews (UserID, ScooterID, Review, Rating) 
+         VALUES (%s, %s, %s, %s)",
+        (user_id, scooter_id, review, rating)
+    )
+```
+
+```python
+# Points on booking (customer.py:115-143)
+points_to_increment = 100
+
+cursor.execute("SELECT points FROM ranking WHERE UserID = %s", (user_id,))
+current_points = cursor.fetchone()
+
+if current_points is not None:
+    new_points = current_points[0] + points_to_increment
+    cursor.execute(
+        "UPDATE ranking SET points = %s WHERE UserID = %s",
+        (new_points, user_id)
+    )
+else:
+    cursor.execute(
+        "INSERT INTO ranking (UserID, points) VALUES (%s, %s)",
+        (user_id, points_to_increment)
+    )
+```
+
+---
+
+## Admin-Specific Features
+
+### Fleet Management
+- Add new scooters to the system (admin.py:238-267)
+- Edit scooter details (make, color, location, power, cost, status)
+- Delete scooters from the fleet
+- View all scooters regardless of status
+- Real-time scooter status dashboard
+
+### Customer Management
+- View all registered customers
+- Edit customer details and account balances
+- Create new user accounts for any role type
+- View customer booking histories
+- Monitor customer top-up transactions
+
+### Advanced Analytics
+- Scooter-specific usage reports
+- Booking history tracking
+- Payment history monitoring
+- Multi-scooter comparison capabilities
+
+---
+
+## Engineer-Specific Features
+
+### Repair Management
+- View all reported scooters filtered by "To Be Repaired" status (engineer.py:43-73)
+- Access repair request details and descriptions
+- Toggle repair status between "In Progress" and "Complete" (engineer.py:129-171)
+- Track all repair history
+
+### Maintenance Tools
+- Lock/unlock scooters for servicing without balance checks
+- View scooter locations for field operations
+- Create maintenance usage records
+
+---
+
+## Technical Highlights
+
+<CardGroup cols={2}>
+  <Card title="Security" icon="lock">
+    - BCrypt password hashing
+    - Server-side session management
+    - Role-based access control
+    - SQL injection prevention
+  </Card>
+  <Card title="Database" icon="database">
+    - MySQL backend
+    - Transaction support
+    - Referential integrity
+    - Automatic timestamp tracking
+  </Card>
+  <Card title="IoT Integration" icon="microchip">
+    - Raspberry Pi compatibility
+    - Real-time lock control
+    - Location tracking
+    - Hardware abstraction layer
+  </Card>
+  <Card title="Code Quality" icon="code">
+    - PEP8 compliant
+    - CI/CD with GitHub Actions
+    - Blueprint architecture
+    - Modular design
+  </Card>
+</CardGroup>
+
+## Feature Comparison Matrix
+
+| Feature | Customer | Admin | Engineer |
+|---------|----------|-------|----------|
+| Browse Scooters | ✓ | ✓ | ✓ |
+| Book Scooters | ✓ | ✗ | ✗ |
+| Lock/Unlock | ✓ | ✗ | ✓ |
+| View Analytics | ✗ | ✓ | ✗ |
+| Manage Fleet | ✗ | ✓ | ✗ |
+| Manage Repairs | ✗ | Report Only | ✓ |
+| Submit Reviews | ✓ | ✗ | ✗ |
+| Top Up Balance | ✓ | Modify Others | ✗ |
+| Loyalty Points | ✓ | View Only | ✗ |
+
+---
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card
+    title="API Reference"
+    icon="code"
+    href="/api/customer/scooters"
+  >
+    Explore detailed API endpoints for each feature
+  </Card>
+  <Card
+    title="User Guides"
+    icon="book"
+    href="/user-guides/customer-guide"
+  >
+    Step-by-step guides for using each feature
+  </Card>
+  <Card
+    title="Database Schema"
+    icon="database"
+    href="/technical/database-schema"
+  >
+    Understand the data model behind these features
+  </Card>
+  <Card
+    title="Configuration"
+    icon="gear"
+    href="/getting-started/configuration"
+  >
+    Configure features for your deployment
+  </Card>
+</CardGroup>

@@ -1,0 +1,135 @@
+---
+title: "Logout User"
+api: "GET /logout"
+description: "Log out the current user and clear their session"
+---
+
+## Overview
+
+Logs out the currently authenticated user by clearing their session data and redirects to the home page with a status message.
+
+## Authentication
+
+Requires an active user session (checks for `session['user_id']`).
+
+## Request
+
+No parameters required. The endpoint uses the current session to identify the user.
+
+## Response
+
+<ResponseField name="status" type="string">
+  HTTP status code: `200` for success, `201` for no active session
+</ResponseField>
+
+<ResponseField name="template" type="string">
+  Always returns `home.html` template
+</ResponseField>
+
+<ResponseField name="message" type="string">
+  Status message displayed to the user:
+  - "Successfully logged out!" - User was logged out successfully
+  - "No user was logged in" - No user_id in session
+  - "No current user session. It is likely that no user is logged in!" - Exception occurred
+</ResponseField>
+
+## Implementation Details
+
+### Session Clearing
+
+The endpoint clears all session variables:
+
+```python
+session['loggedin'] = None
+session['user_id'] = None
+session['username'] = None
+```
+
+### Logic Flow
+
+```python
+@app.route('/logout')
+def logout_user():
+    try:    
+        if session['user_id'] is None:
+            return render_template('home.html', 
+                message="No user was logged in")
+        else:
+            session['loggedin'] = None
+            session['user_id'] = None
+            session['username'] = None
+            return render_template('home.html', 
+                message="Successfully logged out!")
+    except:
+        return render_template('home.html', 
+            message="No current user session. It is likely that no user is logged in!"), 201
+```
+
+## Request Example
+
+```bash
+curl -X GET "http://localhost:5000/logout" \
+  --cookie "session=<session-cookie>"
+```
+
+## Response Examples
+
+### Success (200)
+
+Returns rendered home page with message:
+```
+Successfully logged out!
+```
+
+Session variables cleared:
+```python
+session['loggedin'] = None
+session['user_id'] = None
+session['username'] = None
+```
+
+### No Active User (200)
+
+Returns rendered home page with message:
+```
+No user was logged in
+```
+
+### Exception/No Session (201)
+
+Returns rendered home page with message:
+```
+No current user session. It is likely that no user is logged in!
+```
+
+## Error Handling
+
+- **No Session**: Returns home page with informative message (201)
+- **user_id is None**: Returns home page with "No user was logged in" message
+- **Exception**: Catches any session-related exceptions and returns home page
+
+## Behavior Notes
+
+- Always redirects to home page regardless of success or failure
+- Sets session variables to `None` rather than deleting them
+- Gracefully handles cases where no session exists
+- Does not return JSON, only rendered HTML templates
+
+## Security Notes
+
+- Session data is cleared on logout
+- Server-side sessions ensure complete data removal
+- No sensitive information is exposed in error messages
+- Exception handling prevents session-related errors from breaking the application
+
+## Session Management
+
+The logout endpoint interacts with Flask-Session:
+
+```python
+# Session configuration
+app.config['SESSION_TYPE'] = 'sqlalchemy'
+app.config['SESSION_SQLALCHEMY'] = db
+```
+
+Session data is stored in the SQLite database and cleared server-side on logout.

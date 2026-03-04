@@ -1,0 +1,383 @@
+---
+title: 'Bookings'
+description: 'Customer endpoints for booking, cancelling, and managing scooter reservations'
+---
+
+## POST /book_scooter/\<scooter_id\>/\<user_id\>
+
+Creates a new booking for a scooter and awards ranking points to the user.
+
+### Request
+
+<ParamField path="scooter_id" type="integer" required>
+  The unique identifier of the scooter to book
+</ParamField>
+
+<ParamField path="user_id" type="integer" required>
+  The unique identifier of the user making the booking
+</ParamField>
+
+### Response
+
+<ResponseField name="message" type="string">
+  Success or error message
+</ResponseField>
+
+### Database Operations
+
+1. **Update scooter status to 'Occupying':**
+```sql
+UPDATE scooters SET Status = 'Occupying' WHERE ScooterID = %s
+```
+
+2. **Insert booking record:**
+```sql
+INSERT INTO bookings (ScooterID, UserID, BookingTime, BookingStatus, LockStatus)
+VALUES (%s, %s, NOW(), 'Active', 'Locked')
+```
+
+3. **Award ranking points (100 points per booking):**
+```sql
+-- Check existing points
+SELECT points FROM ranking WHERE UserID = %s
+
+-- Update if exists
+UPDATE ranking SET points = %s WHERE UserID = %s
+
+-- Insert if new user
+INSERT INTO ranking (UserID, points) VALUES (%s, %s)
+```
+
+### Ranking System
+
+- Each booking awards **100 points** to the user
+- Points are tracked in the `ranking` table
+- If the user has no ranking record, one is created automatically
+
+### Example Request
+
+```bash
+POST /book_scooter/3/15
+```
+
+### Example Response
+
+**Success (201)**
+```json
+{
+  "message": "Booking successful"
+}
+```
+
+**Error (500)**
+```json
+{
+  "message": "Booking failed. Error: Database connection error"
+}
+```
+
+---
+
+## POST /cancel_booking/\<booking_id\>
+
+Cancels an existing booking and makes the scooter available again.
+
+### Request
+
+<ParamField path="booking_id" type="integer" required>
+  The unique identifier of the booking to cancel
+</ParamField>
+
+### Response
+
+<ResponseField name="message" type="string">
+  Confirmation message
+</ResponseField>
+
+### Database Operations
+
+1. **Get scooter ID from booking:**
+```sql
+SELECT ScooterID FROM bookings WHERE BookingID = %s
+```
+
+2. **Update booking status:**
+```sql
+UPDATE bookings SET BookingStatus = 'Cancelled' WHERE BookingID = %s
+```
+
+3. **Make scooter available again:**
+```sql
+UPDATE scooters SET Status = 'Available' WHERE ScooterID = %s
+```
+
+### Example Request
+
+```bash
+POST /cancel_booking/42
+```
+
+### Example Response
+
+**Success (200)**
+```json
+{
+  "message": "Booking cancelled successfully"
+}
+```
+
+---
+
+## GET /customer_bookings/\<user_id\>
+
+Retrieves all bookings (active and historical) for a specific customer.
+
+### Request
+
+<ParamField path="user_id" type="integer" required>
+  The unique identifier of the customer
+</ParamField>
+
+### Response
+
+<ResponseField name="user_id" type="integer">
+  The customer's user ID
+</ResponseField>
+
+<ResponseField name="booking_history" type="array">
+  Array of booking records
+  
+  <ResponseField name="BookingID" type="integer">
+    Unique identifier for the booking
+  </ResponseField>
+  
+  <ResponseField name="ScooterID" type="integer">
+    ID of the booked scooter
+  </ResponseField>
+  
+  <ResponseField name="BookingTime" type="string">
+    Timestamp when booking was made (format: YYYY-MM-DD HH:MM:SS)
+  </ResponseField>
+  
+  <ResponseField name="BookingStatus" type="string">
+    Status of the booking: 'Active', 'Completed', or 'Cancelled'
+  </ResponseField>
+  
+  <ResponseField name="LockStatus" type="string">
+    Lock status: 'Locked' or 'Unlocked'
+  </ResponseField>
+</ResponseField>
+
+### Database Query
+
+```sql
+SELECT BookingID, ScooterID, BookingTime, BookingStatus, LockStatus 
+FROM bookings 
+WHERE UserID = %s
+```
+
+### Example Request
+
+```bash
+GET /customer_bookings/15
+```
+
+### Example Response
+
+**Success (200)**
+```json
+{
+  "user_id": 15,
+  "booking_history": [
+    {
+      "BookingID": 42,
+      "ScooterID": 3,
+      "BookingTime": "2026-03-04 10:15:30",
+      "BookingStatus": "Active",
+      "LockStatus": "Locked"
+    },
+    {
+      "BookingID": 38,
+      "ScooterID": 7,
+      "BookingTime": "2026-03-02 14:22:10",
+      "BookingStatus": "Completed",
+      "LockStatus": "Locked"
+    }
+  ]
+}
+```
+
+**Error**
+```json
+{
+  "error": "Error message details"
+}
+```
+
+---
+
+## POST /customer_unlock_scooter/\<scooter_id\>/\<booking_id\>
+
+Unlocks a scooter for use if the customer has sufficient funds.
+
+### Request
+
+<ParamField path="scooter_id" type="integer" required>
+  The unique identifier of the scooter to unlock
+</ParamField>
+
+<ParamField path="booking_id" type="integer" required>
+  The unique identifier of the active booking
+</ParamField>
+
+### Response
+
+<ResponseField name="message" type="string">
+  Success or error message
+</ResponseField>
+
+### Database Operations
+
+1. **Check user's available funds:**
+```sql
+SELECT AvailableMoney FROM users WHERE UserID = %s
+```
+
+2. **Get scooter cost:**
+```sql
+SELECT CostPerTime FROM scooters WHERE ScooterID = %s
+```
+
+3. **Update lock status (if funds sufficient):**
+```sql
+UPDATE bookings SET LockStatus = 'Unlocked' WHERE BookingID = %s
+```
+
+### Validation
+
+- User must have `AvailableMoney >= CostPerTime`
+- If insufficient funds, returns error message prompting to top up account
+
+### Example Request
+
+```bash
+POST /customer_unlock_scooter/3/42
+```
+
+### Example Response
+
+**Success (200)**
+```json
+{
+  "message": "Scooter Unlocked Successfully"
+}
+```
+
+**Insufficient Funds (200)**
+```json
+{
+  "message": "Not enough funds to unlock scooter. Please topup account :)"
+}
+```
+
+**Error**
+```json
+{
+  "error": "Error message details"
+}
+```
+
+---
+
+## GET /customer_lock_scooter/\<scooter_id\>/\<booking_id\>
+
+Locks the scooter, completes the booking, charges the user, and updates the scooter location.
+
+### Request
+
+<ParamField path="scooter_id" type="integer" required>
+  The unique identifier of the scooter to lock
+</ParamField>
+
+<ParamField path="booking_id" type="integer" required>
+  The unique identifier of the active booking
+</ParamField>
+
+<ParamField query="newLocation" type="string" required>
+  The new location where the scooter is being parked
+</ParamField>
+
+### Response
+
+<ResponseField name="message" type="string">
+  Success or error message
+</ResponseField>
+
+### Database Operations
+
+1. **Get scooter cost:**
+```sql
+SELECT CostPerTime FROM scooters WHERE ScooterID = %s
+```
+
+2. **Deduct cost from user balance:**
+```sql
+SELECT AvailableMoney FROM users WHERE UserID = %s
+UPDATE users SET AvailableMoney = %s WHERE UserID = %s
+```
+
+3. **Update booking lock status:**
+```sql
+UPDATE bookings SET LockStatus = 'Locked' WHERE BookingID = %s
+```
+
+4. **Complete the booking:**
+```sql
+UPDATE bookings SET BookingStatus = 'Completed' WHERE BookingID = %s
+```
+
+5. **Make scooter available:**
+```sql
+UPDATE scooters SET Status = 'Available' WHERE ScooterID = %s
+```
+
+6. **Update scooter location:**
+```sql
+UPDATE scooters SET Location = %s WHERE ScooterID = %s
+```
+
+7. **Create usage record:**
+```sql
+INSERT INTO scooter_usage (ScooterID, UserID, TimeUsed, UsageDate, DistanceCovered) 
+VALUES (%s, %s, %s, DATE(NOW()), %s)
+```
+
+### Example Request
+
+```bash
+GET /customer_lock_scooter/3/42?newLocation=Library%20Street
+```
+
+### Example Response
+
+**Success (200)**
+```json
+{
+  "message": "Scooter Locked Successfully"
+}
+```
+
+**Error**
+```json
+{
+  "error": "Error message details"
+}
+```
+
+### Side Effects
+
+- User's `AvailableMoney` is reduced by `CostPerTime`
+- Booking status changes to 'Completed'
+- Scooter becomes 'Available' for other users
+- Scooter location is updated to the new parking location
+- Usage record is created with current date, TimeUsed=10, DistanceCovered=10

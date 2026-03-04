@@ -1,0 +1,157 @@
+---
+title: "Login User"
+api: "POST /login"
+description: "Authenticate a user and create a session"
+---
+
+## Overview
+
+Authenticates a user by verifying their email and password. On success, creates a server-side session and redirects to the appropriate dashboard based on user type.
+
+## Authentication
+
+No authentication required (public endpoint).
+
+## Request Body
+
+<ParamField body="email" type="string" required>
+  User's email address
+</ParamField>
+
+<ParamField body="password" type="string" required>
+  User's password (will be compared against bcrypt hash)
+</ParamField>
+
+## Response
+
+<ResponseField name="status" type="string">
+  HTTP status code: `200` for success (with template), `201` for generic success
+</ResponseField>
+
+<ResponseField name="template" type="string">
+  Rendered HTML template based on user type:
+  - Engineer: `engineer/engineer.html`
+  - System Admin: `admin/admin.html`
+  - Customer: `customer/customer.html`
+  - Other: JSON response with message
+</ResponseField>
+
+<ResponseField name="session" type="object">
+  Session data created on successful login:
+  - `loggedin`: `true`
+  - `user_id`: User's database ID
+  - `username`: User's username
+</ResponseField>
+
+## Implementation Details
+
+### Password Verification
+
+Passwords are verified using Flask-Bcrypt:
+
+```python
+if user and bcrypt.check_password_hash(user[0], password):
+    # Login successful
+```
+
+### Database Query
+
+User credentials are retrieved from the database:
+
+```python
+select_query = """SELECT Password, UserID, UserType, Username 
+                  FROM users WHERE Email= %s"""
+cursor.execute(select_query, (email,))
+user = cursor.fetchone()
+```
+
+### Session Management
+
+On successful authentication, session variables are created:
+
+```python
+session['loggedin'] = True
+session['user_id'] = user[1]
+session['username'] = user[3]
+```
+
+### User Type Routing
+
+Users are redirected based on their `UserType`:
+
+- **Engineer** → `engineer/engineer.html`
+- **System Admin** → `admin/admin.html`
+- **Customer** → `customer/customer.html`
+- **Other** → JSON response: `{"message": "User logged in"}`
+
+## Request Example
+
+```bash
+curl -X POST "http://localhost:5000/login" \
+  -H "Content-Type: application/x-www-form-urlencoded" \
+  -d "email=john.doe@example.com" \
+  -d "password=securepass123"
+```
+
+## Response Examples
+
+### Success - Customer (200)
+
+Returns rendered customer dashboard HTML template.
+
+Session created:
+```json
+{
+  "loggedin": true,
+  "user_id": 123,
+  "username": "johndoe"
+}
+```
+
+### Success - Engineer (200)
+
+Returns rendered engineer dashboard HTML template.
+
+### Success - System Admin (200)
+
+Returns rendered admin dashboard HTML template.
+
+### Success - Other User Type (201)
+
+```json
+{
+  "message": "User logged in"
+}
+```
+
+### Error - Invalid Credentials
+
+Returns rendered login page with error message:
+```
+Email Address or Password Incorrect
+```
+
+## Error Handling
+
+- **Invalid Email**: Returns login page with error message
+- **Invalid Password**: Returns login page with error message (bcrypt comparison fails)
+- **User Not Found**: Returns login page with error message
+- **Database Connection Failure**: May result in server error
+
+## Security Notes
+
+- Passwords are verified using bcrypt hash comparison
+- Generic error message prevents user enumeration
+- Sessions are stored server-side using Flask-Session with SQLAlchemy
+- Session secret key is configured in app config
+- Database queries use parameterized statements to prevent SQL injection
+
+## Session Configuration
+
+The application uses Flask-Session with SQLAlchemy backend:
+
+```python
+app.config['SESSION_TYPE'] = 'sqlalchemy'
+app.config['SESSION_SQLALCHEMY'] = db
+app.config['SECRET_KEY'] = "JEFF"
+```

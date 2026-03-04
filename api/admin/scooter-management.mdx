@@ -1,0 +1,304 @@
+---
+title: 'Scooter Management'
+description: 'Manage scooters in the ScooterShare system'
+---
+
+## Get All Scooters
+
+<api>GET /all_scooters</api>
+
+Retrieves a list of all scooters in the system.
+
+### Response
+
+<ResponseField name="scooters" type="array">
+  Array of scooter objects
+  
+  <Expandable title="scooter object">
+    <ResponseField name="ScooterID" type="integer">
+      Unique identifier for the scooter
+    </ResponseField>
+    
+    <ResponseField name="Make" type="string">
+      Manufacturer or brand of the scooter
+    </ResponseField>
+    
+    <ResponseField name="Colour" type="string">
+      Color of the scooter
+    </ResponseField>
+    
+    <ResponseField name="Location" type="string">
+      Current location of the scooter
+    </ResponseField>
+    
+    <ResponseField name="RemainingPower" type="float">
+      Battery level remaining (percentage or absolute value)
+    </ResponseField>
+    
+    <ResponseField name="CostPerTime" type="float">
+      Rental cost per time unit
+    </ResponseField>
+    
+    <ResponseField name="Status" type="string">
+      Current status of the scooter (e.g., "Available", "In Use", "To Be Repaired")
+    </ResponseField>
+  </Expandable>
+</ResponseField>
+
+<ResponseField name="error" type="string">
+  Error message if the request fails
+</ResponseField>
+
+### Example Response
+
+```json
+{
+  "scooters": [
+    {
+      "ScooterID": 1,
+      "Make": "Xiaomi",
+      "Colour": "Black",
+      "Location": "Downtown",
+      "RemainingPower": 85.5,
+      "CostPerTime": 2.50,
+      "Status": "Available"
+    },
+    {
+      "ScooterID": 2,
+      "Make": "Segway",
+      "Colour": "Red",
+      "Location": "University",
+      "RemainingPower": 45.0,
+      "CostPerTime": 3.00,
+      "Status": "In Use"
+    }
+  ]
+}
+```
+
+---
+
+## Get Scooter by ID
+
+<api>GET /scooter_by_id/\{scooter_id\}</api>
+
+Retrieves detailed information about a specific scooter.
+
+### Path Parameters
+
+<ParamField path="scooter_id" type="integer" required>
+  The unique identifier of the scooter
+</ParamField>
+
+### Response
+
+<ResponseField name="scooter_id" type="integer">
+  The requested scooter ID
+</ResponseField>
+
+<ResponseField name="scooter_details" type="object">
+  Detailed information about the scooter
+  
+  <Expandable title="scooter_details object">
+    <ResponseField name="ScooterID" type="integer">
+      Unique identifier for the scooter
+    </ResponseField>
+    
+    <ResponseField name="Make" type="string">
+      Manufacturer or brand of the scooter
+    </ResponseField>
+    
+    <ResponseField name="Colour" type="string">
+      Color of the scooter
+    </ResponseField>
+    
+    <ResponseField name="Location" type="string">
+      Current location of the scooter
+    </ResponseField>
+    
+    <ResponseField name="RemainingPower" type="float">
+      Battery level remaining
+    </ResponseField>
+    
+    <ResponseField name="CostPerTime" type="float">
+      Rental cost per time unit
+    </ResponseField>
+    
+    <ResponseField name="Status" type="string">
+      Current status of the scooter
+    </ResponseField>
+  </Expandable>
+</ResponseField>
+
+<ResponseField name="message" type="string">
+  Message if scooter is not found (404 status)
+</ResponseField>
+
+<ResponseField name="error" type="string">
+  Error message if the request fails (500 status)
+</ResponseField>
+
+### Example Response
+
+```json
+{
+  "scooter_id": 1,
+  "scooter_details": {
+    "ScooterID": 1,
+    "Make": "Xiaomi",
+    "Colour": "Black",
+    "Location": "Downtown",
+    "RemainingPower": 85.5,
+    "CostPerTime": 2.50,
+    "Status": "Available"
+  }
+}
+```
+
+---
+
+## Add Scooter
+
+<api>POST /add_scooter</api>
+
+Adds a new scooter to the system.
+
+### Form Data Parameters
+
+<ParamField body="make" type="string" required>
+  Manufacturer or brand of the scooter
+</ParamField>
+
+<ParamField body="colour" type="string" required>
+  Color of the scooter
+</ParamField>
+
+<ParamField body="location" type="string" required>
+  Initial location of the scooter
+</ParamField>
+
+<ParamField body="remaining_power" type="float" required>
+  Initial battery level
+</ParamField>
+
+<ParamField body="cost_per_time" type="float" required>
+  Rental cost per time unit
+</ParamField>
+
+<ParamField body="status" type="string" required>
+  Initial status of the scooter (e.g., "Available", "Maintenance")
+</ParamField>
+
+### Database Operation
+
+This endpoint performs an INSERT operation into the `scooters` table:
+
+```sql
+INSERT INTO scooters (Make, Colour, Location, RemainingPower, CostPerTime, Status) 
+VALUES (%s, %s, %s, %s, %s, %s)
+```
+
+### Response
+
+Renders the admin.html template after successful insertion.
+
+---
+
+## Edit Scooter
+
+<api>POST /edit_scooter</api>
+
+Updates an existing scooter's information.
+
+### Form Data Parameters
+
+<ParamField body="scooter_id" type="integer" required>
+  The unique identifier of the scooter to update
+</ParamField>
+
+<ParamField body="make" type="string" required>
+  Updated manufacturer or brand
+</ParamField>
+
+<ParamField body="colour" type="string" required>
+  Updated color
+</ParamField>
+
+<ParamField body="location" type="string" required>
+  Updated location
+</ParamField>
+
+<ParamField body="remaining_power" type="float" required>
+  Updated battery level
+</ParamField>
+
+<ParamField body="cost_per_time" type="float" required>
+  Updated rental cost per time unit
+</ParamField>
+
+<ParamField body="status" type="string" required>
+  Updated status
+</ParamField>
+
+### Database Operation
+
+This endpoint performs an UPDATE operation on the `scooters` table:
+
+```sql
+UPDATE scooters 
+SET Make = %s, Colour = %s, Location = %s, 
+    RemainingPower = %s, CostPerTime = %s, Status = %s 
+WHERE ScooterID = %s
+```
+
+The operation includes error handling with transaction rollback on failure.
+
+### Response
+
+Renders the admin.html template after the update operation.
+
+---
+
+## Delete Scooter
+
+<api>DELETE /delete_scooter/\{scooter_id\}</api>
+
+Deletes a scooter from the system.
+
+### Path Parameters
+
+<ParamField path="scooter_id" type="integer" required>
+  The unique identifier of the scooter to delete
+</ParamField>
+
+### Database Operation
+
+This endpoint performs a DELETE operation on the `scooters` table:
+
+```sql
+DELETE FROM scooters WHERE ScooterID = %s
+```
+
+The operation includes error handling with transaction rollback on failure.
+
+### Response
+
+<ResponseField name="message" type="string">
+  Success or error message indicating the result of the deletion
+</ResponseField>
+
+### Example Response
+
+```json
+{
+  "message": "Scooter deleted successfully"
+}
+```
+
+### Error Response
+
+```json
+{
+  "message": "Error: [error details]"
+}
+```

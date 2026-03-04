@@ -1,0 +1,253 @@
+---
+title: 'Analytics & Reporting'
+description: 'Generate usage reports and visualizations for scooters'
+---
+
+## Generate Visualization
+
+<api>GET /visualisation/\{scooter_id\}</api>
+
+Generates Seaborn visualizations for a scooter's usage patterns, creating two PNG charts:
+1. Daily distance covered (last 7 days)
+2. Weekly time used (last 10 weeks)
+
+### Path Parameters
+
+<ParamField path="scooter_id" type="integer" required>
+  The unique identifier of the scooter
+</ParamField>
+
+### Visualization Process
+
+#### 1. Chart Directory Setup
+The endpoint uses the Flask `static` directory to save charts:
+- Creates the directory if it doesn't exist
+- Clears all existing PNG files before generating new ones
+
+#### 2. Daily Distance Chart
+Query executed:
+```sql
+SELECT DATE(UsageDate) AS UsageDate, SUM(DistanceCovered) AS TotalDistance
+FROM scooter_usage
+WHERE ScooterID = %s AND UsageDate >= %s
+GROUP BY DATE(UsageDate)
+ORDER BY DATE(UsageDate)
+```
+
+Chart specifications:
+- Type: Seaborn bar plot
+- Filename: `daily_distance_chart.png`
+- Size: 10x6 inches
+- X-axis: Dates (rotated 45 degrees)
+- Y-axis: Distance in kilometers
+- Color: Blue
+- Title: "Daily Distance Covered for Scooter ID {scooter_id}"
+
+#### 3. Weekly Time Used Chart
+Query executed:
+```sql
+SELECT YEARWEEK(UsageDate) AS Week, SUM(TimeUsed) AS TotalTime
+FROM scooter_usage
+WHERE ScooterID = %s
+GROUP BY YEARWEEK(UsageDate)
+ORDER BY YEARWEEK(UsageDate)
+LIMIT 10
+```
+
+Chart specifications:
+- Type: Seaborn bar plot
+- Filename: `weekly_time_chart.png`
+- Size: 10x6 inches
+- X-axis: Week number in year
+- Y-axis: Time in minutes
+- Color: Green
+- Title: "Weekly Time Used for Scooter ID {scooter_id}"
+
+### Technical Implementation
+
+```python
+# Matplotlib backend set to 'Agg' for non-interactive rendering
+import matplotlib
+matplotlib.use('Agg')
+
+# Seaborn used for enhanced visualizations
+import seaborn as sns
+import matplotlib.pyplot as plt
+```
+
+### Response
+
+<ResponseField name="scooter_id" type="integer">
+  The scooter ID for which visualizations were generated
+</ResponseField>
+
+<ResponseField name="error" type="string">
+  Error message if the request fails
+</ResponseField>
+
+### Example Response
+
+```json
+{
+  "scooter_id": 1
+}
+```
+
+### Generated Files
+
+After successful execution, two files are created in the `static` directory:
+- `static/daily_distance_chart.png`
+- `static/weekly_time_chart.png`
+
+---
+
+## Get Scooter Usage History
+
+<api>GET /scooter_usage_history/\{scooter_id\}</api>
+
+Retrieves the complete usage history for a specific scooter.
+
+### Path Parameters
+
+<ParamField path="scooter_id" type="integer" required>
+  The unique identifier of the scooter
+</ParamField>
+
+### Database Query
+
+```sql
+SELECT UsageID, ScooterID, TimeUsed, DistanceCovered, UsageDate 
+FROM scooter_usage 
+WHERE ScooterID = %s
+```
+
+### Response
+
+<ResponseField name="scooter_id" type="integer">
+  The requested scooter ID
+</ResponseField>
+
+<ResponseField name="scooter_usage_history" type="array">
+  Array of usage records
+  
+  <Expandable title="usage record object">
+    <ResponseField name="UsageID" type="integer">
+      Unique identifier for this usage record
+    </ResponseField>
+    
+    <ResponseField name="ScooterID" type="integer">
+      The scooter's unique identifier
+    </ResponseField>
+    
+    <ResponseField name="TimeUsed" type="integer">
+      Duration of usage in minutes
+    </ResponseField>
+    
+    <ResponseField name="DistanceCovered" type="float">
+      Distance traveled in kilometers
+    </ResponseField>
+    
+    <ResponseField name="UsageDate" type="string">
+      Date of usage formatted as dd-mm-yyyy
+    </ResponseField>
+  </Expandable>
+</ResponseField>
+
+<ResponseField name="error" type="string">
+  Error message if the request fails
+</ResponseField>
+
+### Example Response
+
+```json
+{
+  "scooter_id": 1,
+  "scooter_usage_history": [
+    {
+      "UsageID": 101,
+      "ScooterID": 1,
+      "TimeUsed": 25,
+      "DistanceCovered": 3.5,
+      "UsageDate": "01-03-2026"
+    },
+    {
+      "UsageID": 102,
+      "ScooterID": 1,
+      "TimeUsed": 40,
+      "DistanceCovered": 5.2,
+      "UsageDate": "02-03-2026"
+    }
+  ]
+}
+```
+
+---
+
+## Get Booking History
+
+<api>GET /booking_history/\{scooter_id\}</api>
+
+Retrieves the booking history for a specific scooter.
+
+### Path Parameters
+
+<ParamField path="scooter_id" type="integer" required>
+  The unique identifier of the scooter
+</ParamField>
+
+### Database Query
+
+```sql
+SELECT BookingID, ScooterID, BookingTime, BookingStatus 
+FROM bookings 
+WHERE ScooterID = %s
+```
+
+### Response
+
+<ResponseField name="booking_history" type="array">
+  Array of booking records
+  
+  <Expandable title="booking record object">
+    <ResponseField name="BookingID" type="integer">
+      Unique identifier for this booking
+    </ResponseField>
+    
+    <ResponseField name="ScooterID" type="integer">
+      The scooter's unique identifier
+    </ResponseField>
+    
+    <ResponseField name="BookingTime" type="string">
+      Date and time of booking formatted as YYYY-MM-DD HH:MM:SS
+    </ResponseField>
+    
+    <ResponseField name="BookingStatus" type="string">
+      Current status of the booking (e.g., "Confirmed", "Completed", "Cancelled")
+    </ResponseField>
+  </Expandable>
+</ResponseField>
+
+<ResponseField name="error" type="string">
+  Error message if the request fails
+</ResponseField>
+
+### Example Response
+
+```json
+{
+  "booking_history": [
+    {
+      "BookingID": 501,
+      "ScooterID": 1,
+      "BookingTime": "2026-03-01 14:30:00",
+      "BookingStatus": "Completed"
+    },
+    {
+      "BookingID": 502,
+      "ScooterID": 1,
+      "BookingTime": "2026-03-02 09:15:00",
+      "BookingStatus": "Confirmed"
+    }
+  ]
+}
+```

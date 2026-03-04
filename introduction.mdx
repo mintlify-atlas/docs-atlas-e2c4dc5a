@@ -1,0 +1,195 @@
+---
+title: 'ScooterShare Platform'
+description: 'IoT-enabled scooter-sharing platform built with Flask and Raspberry Pi'
+---
+
+<img
+  className="block dark:hidden"
+  src="/images/hero-light.svg"
+  alt="ScooterShare Hero Light"
+/>
+<img
+  className="hidden dark:block"
+  src="/images/hero-dark.svg"
+  alt="ScooterShare Hero Dark"
+/>
+
+## Welcome to ScooterShare
+
+ScooterShare is a full-stack IoT scooter-sharing application built to run on Raspberry Pi devices, utilizing Python, Flask, and Google Cloud Platform. The platform provides a complete ecosystem for managing electric scooter rentals with real-time tracking, booking management, and maintenance workflows.
+
+<CardGroup cols={2}>
+  <Card
+    title="Getting Started"
+    icon="rocket"
+    href="/getting-started/installation"
+  >
+    Set up your development environment and deploy your first ScooterShare instance
+  </Card>
+  <Card
+    title="API Reference"
+    icon="code"
+    href="/api/authentication/register"
+  >
+    Explore the complete REST API endpoints for customers, admins, and engineers
+  </Card>
+  <Card
+    title="User Guides"
+    icon="book-open"
+    href="/user-guides/customer-guide"
+  >
+    Learn how to use the platform as a customer, admin, or engineer
+  </Card>
+  <Card
+    title="Features"
+    icon="sparkles"
+    href="/features"
+  >
+    Discover the powerful features that make ScooterShare a complete IoT solution
+  </Card>
+</CardGroup>
+
+## What Makes ScooterShare Different
+
+ScooterShare stands out as an IoT-enabled platform designed specifically for Raspberry Pi deployment, offering:
+
+- **Multi-Role Architecture**: Separate interfaces and permissions for customers, system administrators, and field engineers
+- **Real-Time IoT Integration**: Direct integration with Raspberry Pi hardware for scooter lock/unlock operations
+- **Data-Driven Insights**: Seaborn-powered visualizations for usage analytics and reporting
+- **Secure Authentication**: BCrypt password hashing with Flask-Session management
+- **Gamification**: Points-based ranking system to encourage customer engagement
+
+<Note>
+  This project received a High Distinction (HD) grade and demonstrates enterprise-grade software engineering practices including CI/CD pipelines with GitHub Actions for PEP8 compliance.
+</Note>
+
+## Technology Stack
+
+ScooterShare is built on a modern, proven technology stack:
+
+<CodeGroup>
+
+```python Backend
+Flask - Web framework
+Flask-SQLAlchemy - ORM
+Flask-Bcrypt - Password hashing
+Flask-Session - Session management
+Flask-CORS - Cross-origin support
+MySQLdb - Database connector
+```
+
+```python Data & Visualization
+Seaborn - Statistical visualizations
+Matplotlib - Chart generation
+```
+
+```python IoT & Integration
+Raspberry Pi - Hardware platform
+Google Cloud Platform - Cloud infrastructure
+```
+
+</CodeGroup>
+
+## Quick Example
+
+Here's a simple example of booking a scooter using the ScooterShare API:
+
+```python
+import requests
+
+# View available scooters
+response = requests.get("http://192.168.0.3:5000/available_scooters")
+scooters = response.json()
+
+# Book a scooter
+scooter_id = scooters['scooters'][0]['ScooterID']
+user_id = 123
+
+response = requests.post(
+    f"http://192.168.0.3:5000/book_scooter/{scooter_id}/{user_id}"
+)
+
+if response.status_code == 201:
+    print("Booking successful! Scooter status updated to 'Occupying'")
+    print("100 reward points added to your account")
+```
+
+<Tip>
+  The platform automatically updates scooter status and awards loyalty points when a booking is made.
+</Tip>
+
+## Key Capabilities
+
+<AccordionGroup>
+  <Accordion title="Customer Features" icon="user">
+    - Browse available scooters with detailed information (make, color, location, battery, cost)
+    - Book and manage scooter reservations
+    - Unlock/lock scooters via IoT integration
+    - Top up account balance
+    - View booking and usage history
+    - Submit scooter reviews and ratings
+    - Track loyalty points and leaderboard rankings
+  </Accordion>
+
+  <Accordion title="Admin Features" icon="shield">
+    - Monitor all scooter usage and booking history
+    - Generate usage analytics with Seaborn visualizations
+    - Manage customer accounts and scooter fleet
+    - View customer top-up history
+    - Report scooter issues to engineers
+    - Create and manage user accounts
+    - Real-time scooter status dashboard
+  </Accordion>
+
+  <Accordion title="Engineer Features" icon="wrench">
+    - View reported scooter issues
+    - Track scooter locations for maintenance
+    - Update repair status
+    - Create maintenance reports
+    - Receive email notifications for new repair requests
+    - Lock/unlock scooters for servicing
+  </Accordion>
+</AccordionGroup>
+
+## Architecture Overview
+
+The ScooterShare platform uses a **Blueprint-based architecture** with three main modules:
+
+1. **Customer Module** (`customer.py`) - Handles booking, payments, and usage tracking
+2. **Admin Module** (`admin.py`) - Provides fleet management and analytics
+3. **Engineer Module** (`engineer.py`) - Manages maintenance and repairs
+
+All modules integrate with a centralized MySQL database and utilize Flask-Session for secure, stateful user management.
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card
+    title="Installation Guide"
+    icon="download"
+    href="/getting-started/installation"
+  >
+    Install dependencies and configure your Raspberry Pi
+  </Card>
+  <Card
+    title="Database Setup"
+    icon="database"
+    href="/technical/database-schema"
+  >
+    Set up MySQL and configure database connections
+  </Card>
+  <Card
+    title="Configuration"
+    icon="gear"
+    href="/getting-started/configuration"
+  >
+    Configure network settings and environment variables
+  </Card>
+  <Card
+    title="IoT Integration"
+    icon="microchip"
+    href="/technical/iot-integration"
+  >
+    Deploy to production on Raspberry Pi hardware
+  </Card>
+</CardGroup>

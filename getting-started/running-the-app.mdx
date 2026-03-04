@@ -1,0 +1,239 @@
+---
+title: Running the App
+description: Start and manage the ScooterShare Flask application on your Raspberry Pi
+---
+
+## Starting the Application
+
+Once you've completed [installation](/getting-started/installation) and [configuration](/getting-started/configuration), you're ready to run ScooterShare.
+
+<Steps>
+  <Step title="Navigate to the Source Directory">
+    Change to the directory containing the Flask application:
+    
+    ```bash
+    cd src
+    ```
+    
+    Ensure you can see `app.py` and `config.ini` in this directory.
+  </Step>
+
+  <Step title="Start the Flask Server">
+    Run the Flask application using the following command:
+    
+    ```bash
+    sudo flask --app app.py run --host=0.0.0.0
+    ```
+    
+    <Note>
+      The `sudo` prefix is required to bind to port 5000 on Raspberry Pi systems.
+      
+      The `--host=0.0.0.0` flag makes the app accessible from other devices on your network, not just localhost.
+    </Note>
+  </Step>
+
+  <Step title="Verify the Server is Running">
+    You should see output similar to:
+    
+    ```
+    * Serving Flask app 'app.py'
+    * Debug mode: off
+    WARNING: This is a development server. Do not use it in a production deployment.
+    * Running on all addresses (0.0.0.0)
+    * Running on http://127.0.0.1:5000
+    * Running on http://192.168.0.3:5000
+    ```
+  </Step>
+
+  <Step title="Access the Application">
+    Open a web browser and navigate to:
+    
+    ```
+    http://192.168.0.3:5000
+    ```
+    
+    Replace `192.168.0.3` with your Raspberry Pi's IP address as configured in `config.ini`.
+  </Step>
+</Steps>
+
+## Alternative: Development Mode
+
+For development with auto-reload and debug features, you can run the app directly with Python:
+
+```bash
+sudo python3 app.py
+```
+
+This uses the configuration at the bottom of `app.py`:
+
+```python
+if __name__ == '__main__':
+    app.run(debug=True, use_reloader=True)
+```
+
+<Warning>
+  Debug mode should never be used in production as it exposes sensitive information and allows arbitrary code execution through the debugger.
+</Warning>
+
+## Run Commands Comparison
+
+| Command | Debug Mode | Auto-Reload | Use Case |
+|---------|------------|-------------|----------|
+| `sudo flask --app app.py run --host=0.0.0.0` | No | No | Production-like testing |
+| `sudo python3 app.py` | Yes | Yes | Development |
+| `sudo flask --app app.py run --host=0.0.0.0 --debug` | Yes | Yes | Development with Flask CLI |
+
+## Accessing the Application
+
+### From the Same Device
+
+Access the app locally on the Raspberry Pi:
+
+```
+http://localhost:5000
+http://127.0.0.1:5000
+```
+
+### From Other Devices on Your Network
+
+Access from computers, phones, or tablets on the same network:
+
+```
+http://192.168.0.3:5000
+```
+
+<Note>
+  Make sure your firewall allows incoming connections on port 5000, and that all devices are on the same local network.
+</Note>
+
+## Available User Interfaces
+
+The application provides different interfaces based on user type:
+
+### Customer Portal
+After logging in as a customer, you can:
+- View available scooters
+- Book scooters
+- Manage bookings
+- Top up account balance
+- Unlock/lock booked scooters
+
+### Admin Dashboard
+Admins have access to:
+- Scooter usage reports with data visualizations
+- Booking history management
+- Customer top-up history
+- Scooter status monitoring
+- User and scooter information editing
+
+### Engineer Interface
+Engineers can:
+- View reported scooter issues
+- Check scooter locations
+- Create maintenance reports
+- Update scooter status
+
+## Stopping the Application
+
+To stop the Flask server:
+
+1. Press `Ctrl+C` in the terminal where the app is running
+2. Wait for the shutdown message:
+   ```
+   ^C
+   * Shutting down...
+   ```
+
+## Running in the Background
+
+To keep the application running after closing your terminal session:
+
+### Using nohup
+
+```bash
+sudo nohup flask --app app.py run --host=0.0.0.0 > scootershare.log 2>&1 &
+```
+
+To stop the background process:
+
+```bash
+sudo pkill -f "flask --app app.py"
+```
+
+### Using screen
+
+```bash
+screen -S scootershare
+sudo flask --app app.py run --host=0.0.0.0
+```
+
+Detach from screen: Press `Ctrl+A` then `D`
+
+Reattach to screen:
+```bash
+screen -r scootershare
+```
+
+## Troubleshooting
+
+### Port Already in Use
+
+If you see an error about port 5000 being in use:
+
+```bash
+# Find the process using port 5000
+sudo lsof -i :5000
+
+# Kill the process (replace PID with actual process ID)
+sudo kill -9 <PID>
+```
+
+### Cannot Access from Other Devices
+
+1. Verify your Raspberry Pi's IP address: `hostname -I`
+2. Check if the app is bound to `0.0.0.0`: Look for "Running on all addresses" in the output
+3. Verify firewall settings allow port 5000
+4. Ensure both devices are on the same network
+
+### Database Connection Errors
+
+If you see MySQL connection errors:
+
+1. Verify MySQL server is running
+2. Check database credentials in `app.py`
+3. Ensure the database exists and has required tables
+4. Test connection separately (see [Configuration](/getting-started/configuration))
+
+### Import Errors
+
+If you see errors about missing modules:
+
+```bash
+ModuleNotFoundError: No module named 'flask_session'
+```
+
+Reinstall dependencies:
+```bash
+sudo pip install flask_session flask_bcrypt flask_cors flask_sqlalchemy mysqlclient seaborn
+```
+
+## Production Deployment
+
+<Warning>
+  The Flask development server is not suitable for production use. For production deployments, consider using a WSGI server like Gunicorn or uWSGI with a reverse proxy like Nginx.
+</Warning>
+
+### Note on Database Availability
+
+From the project README:
+
+<Note>
+  The original cloud database is no longer hosted. You will need to set up your own MySQL database instance for the application to function correctly.
+</Note>
+
+## Next Steps
+
+- Learn about [user registration and authentication](/api/authentication/register)
+- Explore [customer features](/user-guides/customer-guide)
+- Discover [admin capabilities](/user-guides/admin-guide)
+- Review [engineer tools](/user-guides/engineer-guide)

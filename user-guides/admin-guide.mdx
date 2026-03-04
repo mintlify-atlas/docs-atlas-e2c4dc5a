@@ -1,0 +1,437 @@
+---
+title: Administrator User Guide
+description: Complete guide for administrators managing the ScooterShare platform
+---
+
+## Overview
+
+As a ScooterShare administrator, you have full control over scooters, customers, repairs, and analytics. This guide covers all administrative functions available in the platform.
+
+## Dashboard Access
+
+Access the admin dashboard at `/admin_page` to view the main administration interface.
+
+## Scooter Management
+
+### Viewing All Scooters
+
+<Steps>
+  <Step title="Access Scooter List">
+    Navigate to `/view_all_scooters` to see all scooters in the system
+  </Step>
+  
+  <Step title="Review Scooter Details">
+    Each scooter displays:
+    - **ScooterID**: Unique identifier
+    - **Make**: Manufacturer
+    - **Colour**: Scooter color
+    - **Location**: Current location
+    - **RemainingPower**: Battery level (%)
+    - **CostPerTime**: Rental cost per time unit
+    - **Status**: Available/Occupying/To Be Repaired
+  </Step>
+</Steps>
+
+<Info>
+Scooter data is fetched from `/all_scooters` endpoint (admin.py:541)
+</Info>
+
+### Adding a New Scooter
+
+<Steps>
+  <Step title="Access Add Scooter Form">
+    Navigate to `/add_scooter` to open the scooter creation form
+  </Step>
+  
+  <Step title="Fill Scooter Details">
+    Provide the following information:
+    - Make
+    - Colour
+    - Location
+    - Remaining Power (battery percentage)
+    - Cost Per Time
+    - Status (Available/Occupying/To Be Repaired)
+  </Step>
+  
+  <Step title="Submit Form">
+    POST the form to `/add_scooter` to create the new scooter entry
+  </Step>
+</Steps>
+
+<Note>
+New scooters are inserted into the scooters table via admin.py:238
+</Note>
+
+### Editing a Scooter
+
+<Steps>
+  <Step title="Select Scooter">
+    Navigate to `/scooter_edit/<scooter_id>` for the scooter you want to modify
+  </Step>
+  
+  <Step title="Update Details">
+    Modify any of the following fields:
+    - Make
+    - Colour
+    - Location
+    - Remaining Power
+    - Cost Per Time
+    - Status
+  </Step>
+  
+  <Step title="Save Changes">
+    POST to `/edit_scooter` to update the scooter record
+  </Step>
+</Steps>
+
+<Info>
+Scooter updates are processed via the `/edit_scooter` endpoint (admin.py:269)
+</Info>
+
+### Deleting a Scooter
+
+<Warning>
+Deleting a scooter is permanent and cannot be undone. Ensure the scooter has no active bookings before deletion.
+</Warning>
+
+<Steps>
+  <Step title="Navigate to Delete">
+    Access `/scooter_delete/<scooter_id>` for the scooter to remove
+  </Step>
+  
+  <Step title="Confirm Deletion">
+    The system sends a DELETE request to `/delete_scooter/<scooter_id>`
+  </Step>
+  
+  <Step title="Verify Removal">
+    The scooter is permanently removed from the database
+  </Step>
+</Steps>
+
+## Customer Management
+
+### Viewing Customers
+
+<CardGroup cols={2}>
+  <Card title="Customer List" icon="users">
+    Access `/customer_detail` to view all customers with UserType = 'Customer'
+  </Card>
+  
+  <Card title="Customer Details" icon="user">
+    View individual customer info at `/customer_by_id/<customer_id>` including:
+    - User ID
+    - Username
+    - First & Last Name
+    - Phone Number
+    - Email
+    - Available Money
+  </Card>
+</CardGroup>
+
+<Info>
+Customer list is retrieved from `/customer_list` endpoint (admin.py:62)
+</Info>
+
+### Editing Customer Information
+
+<Steps>
+  <Step title="Access Customer Edit">
+    Navigate to `/customer_edit/<user_id>` for the customer you want to modify
+  </Step>
+  
+  <Step title="Update Fields">
+    Modify any of the following:
+    - User Type
+    - Username
+    - First Name
+    - Last Name
+    - Phone Number
+    - Email
+    - Available Money
+  </Step>
+  
+  <Step title="Save Changes">
+    POST to `/edit_user` to update the customer record
+  </Step>
+</Steps>
+
+<Note>
+Password cannot be updated through this interface. Customer updates are processed via admin.py:312
+</Note>
+
+### Creating a New User
+
+Navigate to `/create_user_page` to access the user creation form and add new customers, admins, or engineers to the system.
+
+## Scooter Analytics and Reporting
+
+### Usage Statistics
+
+<Steps>
+  <Step title="Select Scooter">
+    Navigate to `/scooter_usage_admin/<scooter_id>` for the scooter you want to analyze
+  </Step>
+  
+  <Step title="View Usage History">
+    Review detailed usage records:
+    - Usage ID
+    - Scooter ID
+    - Time Used (minutes)
+    - Distance Covered (km)
+    - Usage Date (formatted as dd-mm-yyyy)
+  </Step>
+</Steps>
+
+<Info>
+Usage data is fetched from `/scooter_usage_history/<scooter_id>` (admin.py:385)
+</Info>
+
+### Data Visualizations
+
+Generate visual analytics for scooter performance:
+
+<Steps>
+  <Step title="Generate Report">
+    Navigate to `/scooter_visualisation/<scooter_id>` to create charts
+  </Step>
+  
+  <Step title="Daily Distance Chart">
+    View a bar chart showing distance covered for the last 7 days
+    - X-axis: Date
+    - Y-axis: Distance Covered (km)
+    - Saved as: `static/daily_distance_chart.png`
+  </Step>
+  
+  <Step title="Weekly Time Chart">
+    View a bar chart showing time used for the last 10 weeks
+    - X-axis: Week in Year
+    - Y-axis: Time Used (minutes)
+    - Saved as: `static/weekly_time_chart.png`
+  </Step>
+</Steps>
+
+<Note>
+Visualization charts are generated using Seaborn and saved to the static directory (admin.py:81-163)
+</Note>
+
+### Booking History
+
+View booking history for specific scooters:
+
+<Steps>
+  <Step title="Access Booking History">
+    Navigate to `/scooter_booking/<scooter_id>`
+  </Step>
+  
+  <Step title="Review Records">
+    See all bookings for the scooter:
+    - Booking ID
+    - Scooter ID
+    - Booking Time
+    - Booking Status (Active/Completed/Cancelled)
+  </Step>
+</Steps>
+
+<Info>
+Booking history is retrieved from `/booking_history/<scooter_id>` (admin.py:481)
+</Info>
+
+## Repair Management
+
+### Creating a Repair Request
+
+<Steps>
+  <Step title="Access Report Page">
+    Navigate to `/report_scooter/<scooter_id>` for the faulty scooter
+  </Step>
+  
+  <Step title="Fill Repair Details">
+    Provide:
+    - Scooter ID (auto-populated)
+    - User ID (your admin ID)
+    - Description of the issue
+  </Step>
+  
+  <Step title="Submit Request">
+    POST to `/add_repair/2` (page_id=2 for admin) which will:
+    - Update scooter status to "To Be Repaired"
+    - Create repair entry with status "In Progress"
+    - Send email notifications to all engineers
+  </Step>
+</Steps>
+
+<Warning>
+When a repair request is created, the scooter becomes unavailable for customer bookings (admin.py:416-478)
+</Warning>
+
+### Email Notifications
+
+When you create a repair request, the system automatically:
+- Queries all users with UserType = 'Engineer'
+- Sends an email to each engineer via Mailgun API
+- Includes scooter ID, user ID, and repair description
+
+<Note>
+Email functionality requires Mailgun API configuration (admin.py:456-465)
+</Note>
+
+## Customer Financial Management
+
+### Viewing Top-Up History
+
+Track customer payment history:
+
+<Steps>
+  <Step title="Access Top-Up Records">
+    Navigate to `/topup_history/<user_id>` endpoint
+  </Step>
+  
+  <Step title="Review Transactions">
+    View all top-up transactions:
+    - Payment ID
+    - Amount
+    - User ID
+  </Step>
+</Steps>
+
+<Info>
+Top-up history is retrieved from the payments table (admin.py:513)
+</Info>
+
+## Advanced Features
+
+### Scooter Status Overview
+
+<CardGroup cols={3}>
+  <Card title="Available" icon="check-circle" color="#10b981">
+    Scooters ready for customer booking
+  </Card>
+  
+  <Card title="Occupying" icon="user" color="#f59e0b">
+    Scooters currently booked by customers
+  </Card>
+  
+  <Card title="To Be Repaired" icon="wrench" color="#ef4444">
+    Scooters reported for maintenance
+  </Card>
+</CardGroup>
+
+Access `/scooter_status` to view a comprehensive status overview of all scooters.
+
+### Viewing Specific Scooter Details
+
+Get detailed information about any scooter:
+
+<Steps>
+  <Step title="Query Scooter">
+    Send GET request to `/scooter_by_id/<scooter_id>`
+  </Step>
+  
+  <Step title="Receive JSON Response">
+    Get complete scooter details in JSON format including all attributes
+  </Step>
+</Steps>
+
+<Info>
+Scooter details endpoint returns 404 if scooter not found (admin.py:166)
+</Info>
+
+## Frequently Asked Questions
+
+<AccordionGroup>
+  <Accordion title="How do I track scooter performance over time?">
+    Use the visualization feature at `/scooter_visualisation/<scooter_id>` to generate:
+    
+    1. **Daily Distance Chart**: Shows distance covered for the last 7 days
+    2. **Weekly Time Chart**: Shows time used for the last 10 weeks
+    
+    These charts are automatically generated as PNG files in the static directory and provide visual insights into scooter usage patterns.
+  </Accordion>
+  
+  <Accordion title="What happens when I create a repair request?">
+    When you submit a repair request:
+    
+    1. The scooter status immediately changes to "To Be Repaired"
+    2. A repair record is created with status "In Progress"
+    3. The system queries all engineers in the database
+    4. Email notifications are sent to all engineers via Mailgun API
+    5. The scooter becomes unavailable for new bookings
+    
+    Engineers can then view the repair request and update its status.
+  </Accordion>
+  
+  <Accordion title="Can I delete a scooter with active bookings?">
+    While technically possible, it's not recommended to delete scooters with active bookings as this may cause data integrity issues. Always check the booking history (`/scooter_booking/<scooter_id>`) before deleting a scooter to ensure there are no active bookings.
+  </Accordion>
+  
+  <Accordion title="How do I modify customer balances?">
+    Navigate to `/customer_edit/<user_id>` and update the "Available Money" field. This allows you to:
+    - Add funds to customer accounts
+    - Deduct funds if necessary
+    - Correct balance errors
+    
+    Changes take effect immediately upon form submission.
+  </Accordion>
+  
+  <Accordion title="What customer information can I view?">
+    You can view all customers with UserType = 'Customer' at `/customer_detail`. For each customer, you can see:
+    - User ID and username
+    - Full name (first and last)
+    - Contact information (phone and email)
+    - Account balance (available money)
+    - User type
+    
+    Note: Passwords are not displayed for security reasons.
+  </Accordion>
+  
+  <Accordion title="How are usage statistics calculated?">
+    Usage statistics are pulled from the scooter_usage table, which records:
+    - Time Used: Duration in minutes
+    - Distance Covered: Distance in kilometers
+    - Usage Date: Date of the ride
+    
+    The visualization feature aggregates this data to show:
+    - Daily totals (sum of distance per day)
+    - Weekly totals (sum of time per week)
+  </Accordion>
+</AccordionGroup>
+
+## API Endpoints Reference
+
+<CardGroup cols={2}>
+  <Card title="Scooters" icon="motorcycle">
+    - `GET /all_scooters` - List all scooters
+    - `GET /scooter_by_id/<id>` - Get scooter details
+    - `POST /add_scooter` - Create new scooter
+    - `POST /edit_scooter` - Update scooter
+    - `DELETE /delete_scooter/<id>` - Remove scooter
+  </Card>
+  
+  <Card title="Customers" icon="users">
+    - `GET /customer_list` - List all customers
+    - `GET /customer_by_id/<id>` - Get customer details
+    - `POST /edit_user` - Update customer
+  </Card>
+  
+  <Card title="Analytics" icon="chart-line">
+    - `GET /scooter_usage_history/<id>` - Usage history
+    - `GET /visualisation/<id>` - Generate charts
+    - `GET /booking_history/<id>` - Booking records
+  </Card>
+  
+  <Card title="Repairs" icon="screwdriver-wrench">
+    - `POST /add_repair/<page_id>` - Create repair request
+    - Automatically notifies engineers via email
+  </Card>
+</CardGroup>
+
+## Best Practices
+
+<Card title="Recommendations" icon="lightbulb">
+  1. **Regular Monitoring**: Check scooter status daily to identify issues
+  2. **Usage Analytics**: Review visualizations weekly to understand usage patterns
+  3. **Customer Support**: Monitor customer balances and top-up history
+  4. **Repair Management**: Respond promptly to repair requests
+  5. **Data Cleanup**: Regularly review and archive old booking records
+  6. **Location Updates**: Ensure scooter locations are accurate after repairs
+</Card>

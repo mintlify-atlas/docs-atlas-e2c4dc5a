@@ -1,0 +1,240 @@
+---
+title: 'Reviews & Ranking'
+description: 'Customer endpoints for submitting reviews and viewing ranking leaderboards'
+---
+
+## POST /add_review
+
+Submits a customer review and rating for a scooter.
+
+### Request
+
+<ParamField body="user_id" type="integer" required>
+  The unique identifier of the customer submitting the review (form data)
+</ParamField>
+
+<ParamField body="scooter_id" type="integer" required>
+  The unique identifier of the scooter being reviewed (form data)
+</ParamField>
+
+<ParamField body="review" type="string" required>
+  The text content of the review (form data)
+</ParamField>
+
+<ParamField body="rating" type="number" required>
+  The numerical rating for the scooter (form data)
+</ParamField>
+
+### Response
+
+Renders customer page with success message.
+
+### Database Query
+
+```sql
+INSERT INTO reviews (UserID, ScooterID, Review, Rating)
+VALUES (%s, %s, %s, %s)
+```
+
+### Example Request
+
+```bash
+POST /add_review
+Content-Type: application/x-www-form-urlencoded
+
+user_id=15&scooter_id=3&review=Great+scooter%2C+smooth+ride%21&rating=5
+```
+
+### Example Response
+
+Renders `customer/customer.html` template with:
+```json
+{
+  "message": "Review added successfully"
+}
+```
+
+### Notes
+
+- Uses form data (not JSON)
+- All fields are required
+- Review is stored immediately without moderation
+
+---
+
+## GET /get_review
+
+Retrieves all reviews from all customers for all scooters.
+
+### Request
+
+No parameters required.
+
+### Response
+
+<ResponseField name="review" type="array">
+  Array of all review objects
+  
+  <ResponseField name="review_id" type="integer">
+    Unique identifier for the review
+  </ResponseField>
+  
+  <ResponseField name="user_id" type="integer">
+    ID of the customer who submitted the review
+  </ResponseField>
+  
+  <ResponseField name="scooter_id" type="integer">
+    ID of the scooter being reviewed
+  </ResponseField>
+  
+  <ResponseField name="review" type="string">
+    The text content of the review
+  </ResponseField>
+  
+  <ResponseField name="rating" type="number">
+    The numerical rating given
+  </ResponseField>
+</ResponseField>
+
+### Database Query
+
+```sql
+SELECT * FROM reviews
+```
+
+### Example Request
+
+```bash
+GET /get_review
+```
+
+### Example Response
+
+**Success (200)**
+```json
+{
+  "review": [
+    {
+      "review_id": 1,
+      "user_id": 15,
+      "scooter_id": 3,
+      "review": "Great scooter, smooth ride!",
+      "rating": 5
+    },
+    {
+      "review_id": 2,
+      "user_id": 22,
+      "scooter_id": 7,
+      "review": "Battery died too quickly",
+      "rating": 3
+    }
+  ]
+}
+```
+
+**Error**
+```json
+{
+  "error": "Error message details"
+}
+```
+
+---
+
+## GET /get_ranking
+
+Retrieves the ranking leaderboard showing all users and their points.
+
+### Request
+
+No parameters required.
+
+### Response
+
+<ResponseField name="ranking" type="array">
+  Array of ranking entries
+  
+  <ResponseField name="ranking" type="integer">
+    The ranking position/ID
+  </ResponseField>
+  
+  <ResponseField name="user_id" type="integer">
+    The unique identifier of the user
+  </ResponseField>
+  
+  <ResponseField name="points" type="integer">
+    Total points accumulated by the user
+  </ResponseField>
+</ResponseField>
+
+### Database Query
+
+```sql
+SELECT * FROM ranking
+```
+
+### Points System
+
+- **100 points** are awarded for each booking made
+- Points accumulate over time and are never deducted
+- New users start with 100 points on their first booking
+- Points are tracked in the `ranking` table
+
+### How Points Are Awarded
+
+When a customer books a scooter via `POST /book_scooter/<scooter_id>/<user_id>`:
+
+1. System checks if user exists in ranking table
+2. If user exists: `new_points = current_points + 100`
+3. If new user: Creates ranking record with 100 points
+4. Points are updated/inserted in the same transaction as the booking
+
+### Example Request
+
+```bash
+GET /get_ranking
+```
+
+### Example Response
+
+**Success (200)**
+```json
+{
+  "ranking": [
+    {
+      "ranking": 1,
+      "user_id": 15,
+      "points": 500
+    },
+    {
+      "ranking": 2,
+      "user_id": 22,
+      "points": 300
+    },
+    {
+      "ranking": 3,
+      "user_id": 8,
+      "points": 200
+    },
+    {
+      "ranking": 4,
+      "user_id": 33,
+      "points": 100
+    }
+  ]
+}
+```
+
+**Error**
+```json
+{
+  "error": "Error message details"
+}
+```
+
+### Use Cases
+
+- Display leaderboards showing top customers
+- Gamification to encourage more bookings
+- Loyalty program tracking
+- Customer engagement metrics

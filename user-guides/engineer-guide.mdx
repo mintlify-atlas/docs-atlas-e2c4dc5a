@@ -1,0 +1,366 @@
+---
+title: Engineer User Guide
+description: Complete guide for engineers managing scooter repairs and maintenance
+---
+
+## Overview
+
+As a ScooterShare engineer, you're responsible for maintaining scooters, viewing repair requests, and updating repair statuses. This guide covers all engineering functions in the platform.
+
+## Dashboard Access
+
+Access the engineer dashboard at `/engineer_page` to view the main engineering interface.
+
+## Viewing Repair Requests
+
+### Reported Scooters
+
+See all scooters that need repair:
+
+<Steps>
+  <Step title="Access Reported Scooters">
+    Navigate to `/reported_scooters_page` to view all scooters with status "To Be Repaired"
+  </Step>
+  
+  <Step title="Review Scooter Details">
+    Each reported scooter displays:
+    - **ScooterID**: Unique identifier
+    - **Make**: Scooter manufacturer
+    - **Colour**: Scooter color
+    - **Location**: Where the scooter is located
+    - **RemainingPower**: Current battery level
+    - **CostPerTime**: Rental cost (for reference)
+    - **Status**: "To Be Repaired"
+  </Step>
+</Steps>
+
+<Info>
+Reported scooters are fetched from `/reported_scooters` endpoint (engineer.py:43)
+</Info>
+
+### Repair Status Overview
+
+View detailed repair request information:
+
+<Steps>
+  <Step title="Access Repair Status Page">
+    Navigate to `/repair_status_page` to see all repair requests
+  </Step>
+  
+  <Step title="Review Repair Details">
+    Each repair request shows:
+    - **RequestID**: Unique repair request identifier
+    - **ScooterID**: Which scooter needs repair
+    - **UserID**: Who reported the issue (customer or admin)
+    - **RepairStatus**: "In Progress" or "Complete"
+    - **Description**: Details about the reported issue
+  </Step>
+</Steps>
+
+<Info>
+Repair data is retrieved from `/repair_statuses` endpoint (engineer.py:84)
+</Info>
+
+## Managing Repairs
+
+### Updating Repair Status
+
+Toggle repair status between "In Progress" and "Complete":
+
+<Steps>
+  <Step title="Locate Repair Request">
+    Find the repair request you want to update on `/repair_status_page`
+  </Step>
+  
+  <Step title="Toggle Status">
+    Submit a form with the `request_id` to `/update_repair_state`
+  </Step>
+  
+  <Step title="Status Toggle Logic">
+    The system automatically toggles:
+    - If current status is "Complete" → changes to "In Progress"
+    - If current status is "In Progress" → changes to "Complete"
+  </Step>
+  
+  <Step title="Redirect">
+    After update, you're redirected back to `/repair_status_page`
+  </Step>
+</Steps>
+
+<Note>
+Repair status updates are processed via the `/update_repair_state` endpoint (engineer.py:129-171)
+</Note>
+
+<Warning>
+Currently, the system only updates the repairs table. The scooter status in the scooters table is not automatically updated when repairs are completed. This is a known limitation (see FIXME comment at engineer.py:133).
+</Warning>
+
+## Lock and Unlock Features
+
+### Overview
+
+Engineers have special access to lock/unlock any scooter for maintenance purposes, without balance checks.
+
+<CardGroup cols={2}>
+  <Card title="Unlock Access" icon="lock-open">
+    Unlock scooters for repair or testing without balance verification
+  </Card>
+  
+  <Card title="Lock After Repair" icon="lock">
+    Lock scooters and update location after maintenance is complete
+  </Card>
+</CardGroup>
+
+### Viewing Active Bookings
+
+Access the lock/unlock interface:
+
+<Steps>
+  <Step title="Navigate to Interface">
+    Go to `/engineer_lock_unlock` to view active bookings
+  </Step>
+  
+  <Step title="View Unlocked Scooters">
+    See scooters that are currently unlocked (available to lock)
+    - Fetched from `/engineer_active_bookings_unlocked`
+  </Step>
+  
+  <Step title="View Locked Scooters">
+    See scooters that are currently locked (available to unlock)
+    - Fetched from `/engineer_active_bookings_locked`
+  </Step>
+</Steps>
+
+<Info>
+Both endpoints query bookings with BookingStatus = 'Active' filtered by LockStatus (engineer.py:253-313)
+</Info>
+
+### Unlocking a Scooter
+
+Unlock a scooter for maintenance:
+
+<Steps>
+  <Step title="Select Scooter">
+    From the lock/unlock page, choose a locked scooter
+  </Step>
+  
+  <Step title="Initiate Unlock">
+    Navigate to `/engineer_unlock_scooter/<scooter_id>/<booking_id>`
+  </Step>
+  
+  <Step title="Confirmation">
+    The system updates the booking's LockStatus to "Unlocked"
+    
+    Returns: `{"message": "Scooter Unlocked Successfully"}`
+  </Step>
+</Steps>
+
+<Note>
+Unlike customer unlock, engineer unlock doesn't check account balance (engineer.py:186-205)
+</Note>
+
+### Locking a Scooter
+
+Lock a scooter after maintenance:
+
+<Steps>
+  <Step title="Provide New Location">
+    When locking, include the new location as a query parameter: `?newLocation=<location>`
+  </Step>
+  
+  <Step title="Initiate Lock">
+    Navigate to `/engineer_lock_scooter/<scooter_id>/<booking_id>?newLocation=<location>`
+  </Step>
+  
+  <Step title="Automatic Processing">
+    The system will:
+    - Update LockStatus to "Locked"
+    - Update BookingStatus to "Completed"
+    - Change scooter Status to "Available"
+    - Update scooter Location to the new location
+    - Create a usage entry (10 minutes, 10 km)
+  </Step>
+</Steps>
+
+<Info>
+Locking creates a usage record associated with your engineer user ID (engineer.py:207-249)
+</Info>
+
+## Email Notifications
+
+### Receiving Repair Alerts
+
+When customers or admins report scooter issues:
+
+<Steps>
+  <Step title="Automatic Query">
+    System queries all users with UserType = 'Engineer'
+  </Step>
+  
+  <Step title="Email Sent">
+    You receive an email via Mailgun API containing:
+    - Subject: "New Scooter Repair Request"
+    - Scooter ID
+    - User ID (who reported)
+    - Repair Description
+  </Step>
+  
+  <Step title="Access Platform">
+    Log in to view full repair details at `/repair_status_page`
+  </Step>
+</Steps>
+
+<Note>
+Email notifications are configured in admin.py:456-465 and sent when repair requests are created
+</Note>
+
+## Workflow Best Practices
+
+### Standard Repair Process
+
+<Steps>
+  <Step title="Check Email">
+    Review new repair request notification
+  </Step>
+  
+  <Step title="View Repair Details">
+    Access `/repair_status_page` to see the full description and scooter details
+  </Step>
+  
+  <Step title="Locate Scooter">
+    Find the scooter at its reported location (check `/reported_scooters_page`)
+  </Step>
+  
+  <Step title="Perform Repair">
+    Fix the reported issue
+  </Step>
+  
+  <Step title="Update Status">
+    Mark repair as "Complete" via `/update_repair_state`
+  </Step>
+  
+  <Step title="Verify Availability">
+    Ensure scooter is ready for customer use
+  </Step>
+</Steps>
+
+## Frequently Asked Questions
+
+<AccordionGroup>
+  <Accordion title="What's the difference between repair status and scooter status?">
+    There are two separate status fields:
+    
+    **Repair Status** (in repairs table):
+    - "In Progress" - Repair work ongoing
+    - "Complete" - Repair work finished
+    
+    **Scooter Status** (in scooters table):
+    - "Available" - Ready for customer booking
+    - "Occupying" - Currently booked
+    - "To Be Repaired" - Needs maintenance
+    
+    Note: Currently, updating repair status doesn't automatically update scooter status. This is a known limitation.
+  </Accordion>
+  
+  <Accordion title="How do I know which scooters need immediate attention?">
+    Check the `/reported_scooters_page` which shows all scooters with status "To Be Repaired". These are scooters that have been reported by customers or admins and are unavailable for booking. Prioritize based on:
+    - Location (scooters in high-demand areas)
+    - Battery level (low battery may need charging)
+    - Description severity (from repair request details)
+  </Accordion>
+  
+  <Accordion title="Can I unlock a scooter without an active booking?">
+    The current implementation requires an active booking to unlock/lock scooters. The endpoints are:
+    - `/engineer_unlock_scooter/<scooter_id>/<booking_id>`
+    - `/engineer_lock_scooter/<scooter_id>/<booking_id>`
+    
+    Both require a valid booking_id. If you need to service a scooter without a booking, you may need to create a test booking first.
+  </Accordion>
+  
+  <Accordion title="What happens when I lock a scooter after repair?">
+    When you lock a scooter:
+    
+    1. The booking's LockStatus changes to "Locked"
+    2. The booking's BookingStatus changes to "Completed"
+    3. The scooter's Status changes to "Available"
+    4. The scooter's Location is updated to your provided location
+    5. A usage entry is created (currently defaults to 10 minutes and 10 km)
+    
+    This makes the scooter available for new customer bookings.
+  </Accordion>
+  
+  <Accordion title="How are repair requests created?">
+    Repair requests can be created by:
+    
+    1. **Customers**: Via `/customer_report_scooter/<scooter_id>` → submits to `/add_repair/1`
+    2. **Admins**: Via `/report_scooter/<scooter_id>` → submits to `/add_repair/2`
+    
+    Both routes:
+    - Change scooter status to "To Be Repaired"
+    - Create repair entry with status "In Progress"
+    - Send email to all engineers
+  </Accordion>
+  
+  <Accordion title="Can I see completed repairs?">
+    Yes, the `/repair_status_page` shows all repair requests regardless of status. You can see:
+    - Repairs currently "In Progress"
+    - Repairs marked as "Complete"
+    
+    This allows you to track repair history and toggle status if needed.
+  </Accordion>
+</AccordionGroup>
+
+## API Endpoints Reference
+
+<CardGroup cols={2}>
+  <Card title="Repair Viewing" icon="eye">
+    - `GET /reported_scooters` - Scooters needing repair
+    - `GET /repair_statuses` - All repair requests
+  </Card>
+  
+  <Card title="Repair Management" icon="wrench">
+    - `POST /update_repair_state` - Toggle repair status
+  </Card>
+  
+  <Card title="Lock/Unlock" icon="key">
+    - `GET /engineer_active_bookings_locked` - Locked scooters
+    - `GET /engineer_active_bookings_unlocked` - Unlocked scooters
+    - `GET /engineer_unlock_scooter/<id>/<booking_id>` - Unlock
+    - `GET /engineer_lock_scooter/<id>/<booking_id>` - Lock
+  </Card>
+  
+  <Card title="Pages" icon="browser">
+    - `/engineer_page` - Main dashboard
+    - `/reported_scooters_page` - Repair list
+    - `/repair_status_page` - Status management
+    - `/engineer_lock_unlock` - Lock/unlock interface
+  </Card>
+</CardGroup>
+
+## Known Limitations
+
+<Warning>
+**Scooter Status Not Auto-Updated**
+
+When you mark a repair as "Complete", the scooter's status in the scooters table is NOT automatically changed from "To Be Repaired" back to "Available". This requires manual intervention by an admin or a code update.
+
+See FIXME comment at engineer.py:133
+</Warning>
+
+<Warning>
+**SQL Query Issue**
+
+There's a syntax error in the `/engineer_active_bookings_locked` endpoint query (engineer.py:293) - it has an extra "AND" keyword. This may cause the endpoint to fail when querying locked bookings.
+</Warning>
+
+## Tips for Efficient Repair Management
+
+<Card title="Best Practices" icon="list-check">
+  1. **Check Email Regularly**: Monitor for new repair request notifications
+  2. **Prioritize by Location**: Service scooters in high-demand areas first
+  3. **Update Status Promptly**: Mark repairs complete as soon as work is done
+  4. **Verify Location**: Always update scooter location accurately when locking
+  5. **Battery Checks**: Pay attention to RemainingPower levels when servicing
+  6. **Test Before Completion**: Ensure scooter is fully functional before marking complete
+  7. **Coordinate with Admins**: For scooter status issues, work with admins to manually update
+</Card>
